@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import action, thumb with context %}
+{% block title %}History{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Completed prints</h1>
+</div>
+
+{% if jobs %}
+<ul class="jobs">
+  {% for job in jobs %}
+  <li class="job">
+    {{ thumb(job.image_filename, job.item_name) }}
+    <div class="job-main">
+      <a class="job-title" href="{{ url_for('inventory.item_detail', item_id=job.item_id) }}">{{ job.quantity }} &times; {{ job.item_name }}</a>
+      <div class="muted">Finished {{ job.completed_at|localtime }}{% if job.queued_by_name %} · queued by {{ job.queued_by_name }}{% endif %}{% if job.notes %} · {{ job.notes }}{% endif %}</div>
+    </div>
+    <div class="job-actions">
+      {{ action(job.id, 'requeue', 'Print again', 'btn') }}
+      {{ action(job.id, 'delete', 'Remove', 'btn btn-danger', 'Remove this from the history?') }}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="panel empty">
+  <h2>No completed prints yet</h2>
+  <p class="muted">Jobs you mark as done will be listed here.</p>
+</div>
+{% endif %}
+{% endblock %}

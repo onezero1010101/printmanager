@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% set f = form or item or {} %}
+{% block title %}{{ 'Edit item' if item else 'New item' }}{% endblock %}
+{% block content %}
+<div class="panel narrow">
+  <h1>{{ 'Edit item' if item else 'New item' }}</h1>
+  <form method="post" enctype="multipart/form-data" class="stack">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <label>Name
+      <input type="text" name="name" value="{{ f.name or '' }}" maxlength="120" required autofocus>
+    </label>
+    <label>Description
+      <textarea name="description" rows="4" placeholder="Print settings, colors, supports, anything worth remembering">{{ f.description or '' }}</textarea>
+    </label>
+    <label>Model link <span class="muted">(optional: Printables, Thingiverse, etc.)</span>
+      <input type="url" name="model_url" value="{{ f.model_url or '' }}" placeholder="https://">
+    </label>
+    <label>Photo
+      <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
+    </label>
+    {% if item and item.image_filename %}
+    <div class="current-photo">
+      <img src="{{ url_for('inventory.uploaded_file', filename=item.image_filename) }}" alt="Current photo">
+      <label class="check"><input type="checkbox" name="remove_image" value="1"> Remove current photo</label>
+    </div>
+    {% endif %}
+    <div class="actions">
+      <button class="btn btn-primary" type="submit">Save</button>
+      <a class="btn" href="{{ url_for('inventory.item_detail', item_id=item.id) if item else url_for('inventory.index') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

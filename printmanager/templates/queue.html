@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import action, thumb with context %}
+{% block title %}Queue{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Print queue</h1>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('inventory.index') }}">Add from inventory</a>
+  </div>
+</div>
+
+{% if not printing and not queued %}
+<div class="panel empty">
+  <h2>Nothing to print</h2>
+  <p class="muted">Add items from the inventory and they'll show up here.</p>
+</div>
+{% endif %}
+
+{% if printing %}
+<h2>Printing now</h2>
+<ul class="jobs">
+  {% for job in printing %}
+  <li class="job">
+    {{ thumb(job.image_filename, job.item_name) }}
+    <div class="job-main">
+      <a class="job-title" href="{{ url_for('inventory.item_detail', item_id=job.item_id) }}">{{ job.quantity }} &times; {{ job.item_name }}</a>
+      <div class="muted">Started {{ job.started_at|localtime }}{% if job.notes %} · {{ job.notes }}{% endif %}</div>
+    </div>
+    <div class="job-actions">
+      {{ action(job.id, 'complete', 'Mark done', 'btn btn-primary') }}
+      {{ action(job.id, 'requeue', 'Back to queue', 'btn') }}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if queued %}
+<h2>Waiting to print</h2>
+<ul class="jobs">
+  {% for job in queued %}
+  <li class="job">
+    {{ thumb(job.image_filename, job.item_name) }}
+    <div class="job-main">
+      <a class="job-title" href="{{ url_for('inventory.item_detail', item_id=job.item_id) }}">{{ job.quantity }} &times; {{ job.item_name }}</a>
+      <div class="muted">Queued {{ job.queued_at|localtime }}{% if job.queued_by_name %} by {{ job.queued_by_name }}{% endif %}{% if job.notes %} · {{ job.notes }}{% endif %}</div>
+    </div>
+    <div class="job-actions">
+      {{ action(job.id, 'start', 'Start printing', 'btn') }}
+      {{ action(job.id, 'complete', 'Mark done', 'btn btn-primary') }}
+      {{ action(job.id, 'delete', 'Remove', 'btn btn-danger', 'Remove this job from the queue?') }}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Inventory{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Inventory</h1>
+  <div class="actions">
+    <form class="search" method="get" action="{{ url_for('inventory.index') }}">
+      <input type="search" name="q" value="{{ q }}" placeholder="Search items">
+      <button class="btn" type="submit">Search</button>
+    </form>
+    <a class="btn btn-primary" href="{{ url_for('inventory.new_item') }}">Add item</a>
+  </div>
+</div>
+
+{% if items %}
+<div class="grid">
+  {% for item in items %}
+  <article class="card">
+    <a class="thumb" href="{{ url_for('inventory.item_detail', item_id=item.id) }}">
+      {% if item.image_filename %}
+      <img src="{{ url_for('inventory.uploaded_file', filename=item.image_filename) }}" alt="{{ item.name }}" loading="lazy">
+      {% else %}
+      <span class="no-photo">No photo</span>
+      {% endif %}
+    </a>
+    <div class="card-body">
+      <h2><a href="{{ url_for('inventory.item_detail', item_id=item.id) }}">{{ item.name }}</a></h2>
+      {% if item.description %}<p class="muted clamp">{{ item.description }}</p>{% endif %}
+      <div class="chips">
+        {% if item.printing_qty %}<span class="chip chip-printing">{{ item.printing_qty }} printing</span>{% endif %}
+        {% if item.queued_qty %}<span class="chip chip-queued">{{ item.queued_qty }} queued</span>{% endif %}
+        {% if item.completed_qty %}<span class="chip chip-done">{{ item.completed_qty }} printed</span>{% endif %}
+      </div>
+      <form class="queue-form" method="post" action="{{ url_for('jobs.add_to_queue', item_id=item.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+        <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+        <input type="number" name="quantity" value="1" min="1" max="999" aria-label="Quantity">
+        <button class="btn btn-primary" type="submit">Add to queue</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% elif q %}
+<p class="muted">No items match "{{ q }}".</p>
+{% else %}
+<div class="panel empty">
+  <h2>No items yet</h2>
+  <p class="muted">Add the things you print, with a photo and notes, then queue them up when you need more.</p>
+  <a class="btn btn-primary" href="{{ url_for('inventory.new_item') }}">Add your first item</a>
+</div>
+{% endif %}
+{% endblock %}

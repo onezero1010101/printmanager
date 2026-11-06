@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} · Print Manager</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  {% set ep = request.endpoint or '' %}
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('inventory.index') }}">Print Manager</a>
+    {% if g.user %}
+    <nav>
+      <a href="{{ url_for('inventory.index') }}" class="{{ 'active' if ep.startswith('inventory.') }}">Inventory</a>
+      <a href="{{ url_for('jobs.queue') }}" class="{{ 'active' if ep == 'jobs.queue' }}">Queue{% if open_jobs %}<span class="badge">{{ open_jobs }}</span>{% endif %}</a>
+      <a href="{{ url_for('jobs.history') }}" class="{{ 'active' if ep == 'jobs.history' }}">History</a>
+    </nav>
+    <form class="logout" method="post" action="{{ url_for('auth.logout') }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+      <span class="who">{{ g.user.username }}</span>
+      <button class="btn btn-ghost" type="submit">Log out</button>
+    </form>
+    {% endif %}
+  </header>
+  <main>
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

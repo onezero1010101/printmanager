@@ -1,0 +1,18 @@
+{# Import with context so csrf_token is available: {% from "_macros.html" import action with context %} #}
+
+{% macro action(job_id, name, label, cls="btn", confirm_text=None) %}
+<form method="post" action="{{ url_for('jobs.update_job', job_id=job_id, action=name) }}" class="inline"
+      {% if confirm_text %}onsubmit="return confirm({{ confirm_text|tojson }})"{% endif %}>
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+  <button class="{{ cls }}" type="submit">{{ label }}</button>
+</form>
+{% endmacro %}
+
+{% macro thumb(filename, alt) %}
+{% if filename %}
+<img class="mini" src="{{ url_for('inventory.uploaded_file', filename=filename) }}" alt="{{ alt }}" loading="lazy">
+{% else %}
+<span class="mini mini-empty"></span>
+{% endif %}
+{% endmacro %}
