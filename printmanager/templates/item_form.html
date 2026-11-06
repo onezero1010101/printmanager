@@ -15,13 +15,10 @@
     <label>Model link <span class="muted">(optional: Printables, Thingiverse, etc.)</span>
       <input type="url" name="model_url" value="{{ f.model_url or '' }}" placeholder="https://">
     </label>
-    <label>Folder path <span class="muted">(optional: organize items in folders, e.g. Household/Hooks)</span>
-      <input type="text" name="path" value="{{ f.path or prefill_path or '' }}" maxlength="300"
-             list="folder-list" placeholder="Household/Hooks" autocomplete="off">
+    <label>Local file path <span class="muted">(optional: where the STL files live on your PC)</span>
+      <input type="text" name="path" value="{{ f.path or '' }}" maxlength="500"
+             placeholder="C:\Users\you\3D Models\Benchy" spellcheck="false" autocomplete="off">
     </label>
-    <datalist id="folder-list">
-      {% for p in folders %}<option value="{{ p }}">{% endfor %}
-    </datalist>
     <label>Photo
       <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
     </label>

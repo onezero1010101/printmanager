@@ -3,7 +3,7 @@
 A small web app for tracking 3D printing jobs. Keep an inventory of the things you print (with photos, notes and a link to the model), add them to a print queue, and mark them done when they come off the printer. Filament is intentionally out of scope; use Spoolman for that.
 
 - **Inventory:** name, description, photo, optional model link, search
-- **Folders:** give each item a path like `Household/Hooks`, then browse by folder (breadcrumbs and subfolder chips). Use the same layout as the model files on your disk if you like; the path is only a label, the app never reads your filesystem
+- **Local file path:** note where each item's STL files live on your PC (e.g. `C:\Models\Benchy` or `\\nas\prints\Benchy`), shown on the item page with a copy button. It's just a text note; the app never reads your files
 - **Queue:** add any item with a quantity and note, then move it Queued → Printing → Completed
 - **History:** completed prints, with "print again" to requeue
 - **Logins:** username/password for a couple of users sharing one inventory and queue (no public signup)

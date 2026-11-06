@@ -126,62 +126,60 @@ def test_non_image_upload_rejected(auth):
     assert b"PNG, JPG, GIF or WebP" in resp.data
 
 
-def test_uploads_require_login(client):
-    assert client.get("/uploads/anything.png").status_code == 302
-
-
-def test_search(auth):
-    make_item(auth, "Benchy")
-    make_item(auth, "Cable clip")
-    page = auth.get("/?q=cable").data
-    assert b"Cable clip" in page
-    assert b"Benchy" not in page
-
-
-# --- folders ----------------------------------------------------------------
-
-
-def test_path_is_normalized_and_shown(auth, app):
-    item_id = make_item(auth, "Hook", path=" \\Household\\\\Hooks/../ ")
+def saved_path(app, item_id):
     with app.app_context():
-        path = get_db().execute(
+        return get_db().execute(
             "SELECT path FROM items WHERE id = ?", (item_id,)
         ).fetchone()[0]
-    assert path == "Household/Hooks"
-    page = auth.get(f"/items/{item_id}").data
-    assert b"folder=Household%2FHooks" in page or b"folder=Household/Hooks" in page
 
 
-def test_folder_browsing(auth):
-    make_item(auth, "Wall hook", path="Household/Hooks")
-    make_item(auth, "Shelf bracket", path="Household/Brackets")
-    make_item(auth, "Benchy", path="Toys")
-    make_item(auth, "Loose item")
-    make_item(auth, "Prefix decoy", path="Household2")
+def test_local_path_is_stored_exactly_and_shown(auth, app):
+    windows = r"C:\Users\me\3D Models\Benchy"
+    item_id = make_item(auth, "Benchy", path=f"  {windows}  ")
+    assert saved_path(app, item_id) == windows  # trimmed, otherwise untouched
+    page = auth.get(f"/items/{item_id}").data.decode()
+    assert windows in page
+    assert "Copy" in page
 
-    root = auth.get("/").data
-    for name in (b"Wall hook", b"Shelf bracket", b"Benchy", b"Loose item"):
-        assert name in root
-    assert b"Toys" in root  # subfolder chip
+    unc = r"\\nas\prints\Benchy"
+    other = make_item(auth, "Clip", path=unc)
+    assert saved_path(app, other) == unc
 
-    household = auth.get("/?folder=Household").data
-    assert b"Wall hook" in household and b"Shelf bracket" in household
-    assert b"Benchy" not in household
-    assert b"Prefix decoy" not in household  # Household2 is a different folder
-    assert b"Hooks" in household and b"Brackets" in household  # subfolder chips
-
-    hooks = auth.get("/?folder=Household/Hooks").data
-    assert b"Wall hook" in hooks and b"Shelf bracket" not in hooks
-
-    assert b"No items found" in auth.get("/?folder=Nope").data
+    posix = "/home/me/models/clip.stl"
+    third = make_item(auth, "Hook", path=posix)
+    assert saved_path(app, third) == posix
 
 
-def test_new_item_form_prefills_folder_and_suggests_existing(auth):
-    make_item(auth, "Wall hook", path="Household/Hooks")
-    page = auth.get("/items/new?path=Toys").data
-    assert b'value="Toys"' in page
-    assert b'<option value="Household">' in page
-    assert b'<option value="Household/Hooks">' in page
+def test_local_path_can_be_edited_cleared_and_is_optional(auth, app):
+    item_id = make_item(auth, "Benchy")
+    assert saved_path(app, item_id) == ""
+    assert b"Local files" not in auth.get(f"/items/{item_id}").data
+
+    auth.post(
+        f"/items/{item_id}/edit",
+        data={"name": "Benchy", "path": r"D:\STL\Benchy"},
+        content_type="multipart/form-data",
+    )
+    assert saved_path(app, item_id) == r"D:\STL\Benchy"
+    form = auth.get(f"/items/{item_id}/edit").data.decode()
+    assert r'value="D:\STL\Benchy"' in form
+
+    auth.post(
+        f"/items/{item_id}/edit",
+        data={"name": "Benchy", "path": ""},
+        content_type="multipart/form-data",
+    )
+    assert saved_path(app, item_id) == ""
+
+
+def test_local_path_too_long_is_rejected(auth):
+    resp = auth.post(
+        "/items/new",
+        data={"name": "x", "path": "a" * 501},
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 200
+    assert b"500 characters" in resp.data
 
 
 def test_existing_database_gets_path_column(tmp_path):
@@ -217,6 +215,18 @@ def test_existing_database_gets_path_column(tmp_path):
     with app.app_context():
         row = get_db().execute("SELECT name, path FROM items").fetchone()
     assert row["name"] == "Old item" and row["path"] == ""
+
+
+def test_uploads_require_login(client):
+    assert client.get("/uploads/anything.png").status_code == 302
+
+
+def test_search(auth):
+    make_item(auth, "Benchy")
+    make_item(auth, "Cable clip")
+    page = auth.get("/?q=cable").data
+    assert b"Cable clip" in page
+    assert b"Benchy" not in page
 
 
 # --- queue ------------------------------------------------------------------

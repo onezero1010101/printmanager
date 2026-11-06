@@ -5,30 +5,12 @@
   <h1>Inventory</h1>
   <div class="actions">
     <form class="search" method="get" action="{{ url_for('inventory.index') }}">
-      {% if folder %}<input type="hidden" name="folder" value="{{ folder }}">{% endif %}
       <input type="search" name="q" value="{{ q }}" placeholder="Search items">
       <button class="btn" type="submit">Search</button>
     </form>
-    <a class="btn btn-primary" href="{{ url_for('inventory.new_item', path=folder or None) }}">Add item</a>
+    <a class="btn btn-primary" href="{{ url_for('inventory.new_item') }}">Add item</a>
   </div>
 </div>
-
-{% if folder or subfolders %}
-<nav class="folders" aria-label="Folders">
-  <a href="{{ url_for('inventory.index', q=q or None) }}" class="{{ 'current' if not folder }}">All items</a>
-  {% for name, path in folder_crumbs(folder) %}
-  <span class="sep">/</span>
-  <a href="{{ url_for('inventory.index', folder=path, q=q or None) }}" class="{{ 'current' if path == folder }}">{{ name }}</a>
-  {% endfor %}
-</nav>
-{% if subfolders %}
-<div class="chips folder-chips">
-  {% for name, path, count in subfolders %}
-  <a class="chip chip-folder" href="{{ url_for('inventory.index', folder=path, q=q or None) }}">{{ name }} <span>{{ count }}</span></a>
-  {% endfor %}
-</div>
-{% endif %}
-{% endif %}
 
 {% if items %}
 <div class="grid">
@@ -43,7 +25,6 @@
     </a>
     <div class="card-body">
       <h2><a href="{{ url_for('inventory.item_detail', item_id=item.id) }}">{{ item.name }}</a></h2>
-      {% if item.path %}<a class="path" href="{{ url_for('inventory.index', folder=item.path) }}">{{ item.path }}</a>{% endif %}
       {% if item.description %}<p class="muted clamp">{{ item.description }}</p>{% endif %}
       <div class="chips">
         {% if item.printing_qty %}<span class="chip chip-printing">{{ item.printing_qty }} printing</span>{% endif %}
@@ -60,8 +41,8 @@
   </article>
   {% endfor %}
 </div>
-{% elif q or folder %}
-<p class="muted">No items found{% if q %} matching "{{ q }}"{% endif %}{% if folder %} in {{ folder }}{% endif %}.</p>
+{% elif q %}
+<p class="muted">No items match "{{ q }}".</p>
 {% else %}
 <div class="panel empty">
   <h2>No items yet</h2>

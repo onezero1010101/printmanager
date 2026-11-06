@@ -14,17 +14,16 @@
   </div>
   <div class="detail-info">
     <h1>{{ item.name }}</h1>
-    {% if item.path %}
-    <p class="muted folders-line">Folder:
-      <a href="{{ url_for('inventory.index') }}">All items</a>
-      {% for name, path in folder_crumbs(item.path) %}
-      / <a href="{{ url_for('inventory.index', folder=path) }}">{{ name }}</a>
-      {% endfor %}
-    </p>
-    {% endif %}
     {% if item.description %}<p class="prewrap">{{ item.description }}</p>{% endif %}
     {% if item.model_url %}
     <p><a href="{{ item.model_url }}" target="_blank" rel="noopener noreferrer">Open model link</a></p>
+    {% endif %}
+    {% if item.path %}
+    <div class="localpath">
+      <span class="muted">Local files</span>
+      <code id="local-path">{{ item.path }}</code>
+      <button class="btn btn-small" type="button" data-copy="#local-path">Copy</button>
+    </div>
     {% endif %}
 
     <form class="panel stack" method="post" action="{{ url_for('jobs.add_to_queue', item_id=item.id) }}">
@@ -80,4 +79,27 @@
 {% else %}
 <p class="muted">Nothing queued or printed yet.</p>
 {% endif %}
+
+<script>
+document.querySelectorAll('[data-copy]').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var text = document.querySelector(btn.dataset.copy).textContent;
+    var done = function () {
+      btn.textContent = 'Copied';
+      setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+    } else {
+      // Plain-http LAN addresses aren't a secure context, so fall back.
+      var box = document.createElement('textarea');
+      box.value = text;
+      document.body.appendChild(box);
+      box.select();
+      try { document.execCommand('copy'); done(); } catch (e) {}
+      document.body.removeChild(box);
+    }
+  });
+});
+</script>
 {% endblock %}
