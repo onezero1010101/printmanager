@@ -217,6 +217,73 @@ def test_existing_database_gets_path_column(tmp_path):
     assert row["name"] == "Old item" and row["path"] == ""
 
 
+def test_group_items_helper():
+    from printmanager.inventory import group_items
+
+    def item(path):
+        return {"name": path, "path": path}
+
+    groups = group_items(
+        [
+            item(r"C:\M\Hooks\a"),
+            item(r"c:\m\hooks\b"),  # same folder, different case
+            item("C:\\M\\Clips\\c/"),  # trailing slash
+            item(""),
+        ]
+    )
+    assert [h for h, _ in groups] == ["Clips", "Hooks", "No folder path"]
+    assert [len(m) for _, m in groups] == [1, 2, 1]
+
+    # UNC and Linux paths; the shared prefix is trimmed from headings
+    groups = group_items(
+        [
+            item(r"\\nas\prints\Toys\Benchy"),
+            item(r"\\nas\prints\Household\Hooks\Wall hook"),
+        ]
+    )
+    assert [h for h, _ in groups] == ["Household / Hooks", "Toys"]
+    groups = group_items([item("/home/me/models/Toys/x"), item("/home/me/models/Clips/y")])
+    assert [h for h, _ in groups] == ["Clips", "Toys"]
+
+    # one group keeps its last folder name; a bare name sits at the top level
+    assert [h for h, _ in group_items([item(r"C:\Models\Hooks\a")])] == ["Hooks"]
+    assert [h for h, _ in group_items([item("Benchy")])] == ["Top level"]
+
+
+def test_inventory_is_grouped_by_folder(auth):
+    make_item(auth, "Wall hook", path=r"C:\Models\Household\Hooks\Wall hook")
+    make_item(auth, "Coat hook", path=r"C:\Models\Household\Hooks\Coat hook")
+    make_item(auth, "Shelf bracket", path=r"C:\Models\Household\Brackets\Shelf bracket")
+    make_item(auth, "Benchy", path=r"C:\Models\Toys\Benchy")
+    make_item(auth, "Loose item")
+
+    page = auth.get("/").data.decode()
+    assert page.count('<details class="folder-group"') == 4
+    headings = ["Household / Brackets", "Household / Hooks", "Toys", "No folder path"]
+    positions = [page.index(f"{h} <span") for h in headings]
+    assert positions == sorted(positions)
+    assert 'Household / Hooks <span class="count">2</span>' in page
+    assert "Show flat list" in page
+
+    flat = auth.get("/?group=0").data.decode()
+    assert "folder-group" not in flat
+    assert "Group by folder" in flat
+    for name in ("Wall hook", "Coat hook", "Shelf bracket", "Benchy", "Loose item"):
+        assert name in flat
+
+    searched = auth.get("/?q=hook").data.decode()
+    assert "Wall hook" in searched and "Shelf bracket" not in searched
+
+
+def test_no_grouping_when_items_have_no_folders(auth):
+    make_item(auth, "Benchy")
+    make_item(auth, "Clip")
+    page = auth.get("/").data.decode()
+    assert "folder-group" not in page
+    assert "by folder" not in page
+    assert "Benchy" in page and "Clip" in page
+
+
 def test_uploads_require_login(client):
     assert client.get("/uploads/anything.png").status_code == 302
 

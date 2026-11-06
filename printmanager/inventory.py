@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 
 from flask import (
@@ -52,6 +53,43 @@ def _remove_image(name):
         pass
 
 
+def group_items(items):
+    """Group items by the folder that contains their local path.
+
+    Works with Windows (C:\\a\\b), UNC (\\\\nas\\share) and Linux (/a/b) paths.
+    The folder is the path minus its last segment, so an item pointing at
+    C:\\Models\\Household\\Hooks\\Wall hook is filed under Household / Hooks.
+    The part of the folder path shared by every group is dropped from the
+    headings. Returns [(heading, [items])], sorted, with items that have no
+    path last.
+    """
+    groups = {}  # case-insensitive folder key -> (folder as first typed, items)
+    unfiled = []
+    for item in items:
+        segments = [s for s in re.split(r"[\\/]+", item["path"] or "") if s]
+        if not segments:
+            unfiled.append(item)
+            continue
+        folder = segments[:-1]
+        key = tuple(s.casefold() for s in folder)
+        groups.setdefault(key, (folder, []))[1].append(item)
+
+    keys = sorted(groups)
+    common = 0
+    if keys:
+        limit = max(min(len(k) for k in keys) - 1, 0)  # always keep a last segment
+        while common < limit and len({k[common] for k in keys}) == 1:
+            common += 1
+
+    result = []
+    for key in keys:
+        folder, members = groups[key]
+        result.append((" / ".join(folder[common:]) or "Top level", members))
+    if unfiled:
+        result.append(("No folder path", unfiled))
+    return result
+
+
 def _get_item(item_id):
     item = get_db().execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
     if item is None:
@@ -65,7 +103,16 @@ def index():
     q = request.args.get("q", "").strip()
     like = f"%{q}%"
     items = get_db().execute(ITEM_LIST_SQL, (like, like)).fetchall()
-    return render_template("inventory.html", items=items, q=q)
+    groups = group_items(items)
+    can_group = len(groups) > 1
+    return render_template(
+        "inventory.html",
+        items=items,
+        q=q,
+        groups=groups,
+        can_group=can_group,
+        use_groups=can_group and request.args.get("group") != "0",
+    )
 
 
 @bp.route("/items/new", methods=("GET", "POST"))

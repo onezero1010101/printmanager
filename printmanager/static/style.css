@@ -152,6 +152,15 @@ form.inline { display: inline; margin: 0; }
 .chip-printing { background: var(--printing-bg); color: var(--printing); }
 .chip-done, .chip-completed { background: var(--done-bg); color: var(--done); }
 
+/* Folder groups */
+.view-toggle { margin: 0 0 .9rem; }
+.folder-group { margin-bottom: 1.5rem; }
+.folder-group summary {
+  cursor: pointer; font-weight: 600; font-size: 1.05rem;
+  padding: .35rem 0; margin-bottom: .75rem; border-bottom: 1px solid var(--border);
+}
+.folder-group .count { margin-left: .4rem; font-weight: 400; font-size: .85rem; color: var(--muted); }
+
 /* Item detail */
 .detail { display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; margin-bottom: 1rem; }
 .detail-photo { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); min-height: 200px; }
