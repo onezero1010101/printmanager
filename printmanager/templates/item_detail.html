@@ -14,6 +14,14 @@
   </div>
   <div class="detail-info">
     <h1>{{ item.name }}</h1>
+    {% if item.path %}
+    <p class="muted folders-line">Folder:
+      <a href="{{ url_for('inventory.index') }}">All items</a>
+      {% for name, path in folder_crumbs(item.path) %}
+      / <a href="{{ url_for('inventory.index', folder=path) }}">{{ name }}</a>
+      {% endfor %}
+    </p>
+    {% endif %}
     {% if item.description %}<p class="prewrap">{{ item.description }}</p>{% endif %}
     {% if item.model_url %}
     <p><a href="{{ item.model_url }}" target="_blank" rel="noopener noreferrer">Open model link</a></p>

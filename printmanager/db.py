@@ -29,6 +29,10 @@ def close_db(_error=None):
 def init_db():
     db = get_db()
     db.executescript(Path(__file__).with_name("schema.sql").read_text())
+    # Migrations for databases created by older versions.
+    columns = {row["name"] for row in db.execute("PRAGMA table_info(items)")}
+    if "path" not in columns:
+        db.execute("ALTER TABLE items ADD COLUMN path TEXT NOT NULL DEFAULT ''")
     db.commit()
 
 

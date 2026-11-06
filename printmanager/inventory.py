@@ -28,10 +28,54 @@ SELECT i.*,
        COALESCE(SUM(CASE WHEN j.status = 'completed' THEN j.quantity END), 0) AS completed_qty
 FROM items i
 LEFT JOIN print_jobs j ON j.item_id = i.id
-WHERE i.name LIKE ? OR i.description LIKE ?
+WHERE (i.name LIKE ? OR i.description LIKE ? OR i.path LIKE ?)
+  AND (? = '' OR i.path = ? OR substr(i.path, 1, length(?) + 1) = ? || '/')
 GROUP BY i.id
 ORDER BY i.name COLLATE NOCASE
 """
+
+
+def normalize_path(raw):
+    """Turn 'a\\b//c/' into 'a/b/c'. Paths are labels for organizing, never opened."""
+    parts = [p.strip() for p in (raw or "").replace("\\", "/").split("/")]
+    return "/".join(p for p in parts if p and p not in (".", ".."))
+
+
+@bp.app_template_global("folder_crumbs")
+def folder_crumbs(path):
+    """[(name, full_path), ...] for each level of a folder path."""
+    crumbs, acc = [], []
+    for part in (path or "").split("/"):
+        if part:
+            acc.append(part)
+            crumbs.append((part, "/".join(acc)))
+    return crumbs
+
+
+def _subfolders(paths, current):
+    """Immediate child folders of `current` as (name, full_path, item_count)."""
+    prefix = current + "/" if current else ""
+    counts = {}
+    for p in paths:
+        if current and not p.startswith(prefix):
+            continue
+        rest = p[len(prefix):]
+        if rest:
+            child = rest.split("/", 1)[0]
+            counts[child] = counts.get(child, 0) + 1
+    return [
+        (name, prefix + name, counts[name])
+        for name in sorted(counts, key=str.casefold)
+    ]
+
+
+def _all_folders():
+    """Every folder (including parents of deeper ones) for form suggestions."""
+    folders = set()
+    for row in get_db().execute("SELECT DISTINCT path FROM items WHERE path != ''"):
+        for _name, full in folder_crumbs(row["path"]):
+            folders.add(full)
+    return sorted(folders, key=str.casefold)
 
 
 def _save_image(storage):
@@ -63,9 +107,20 @@ def _get_item(item_id):
 @login_required
 def index():
     q = request.args.get("q", "").strip()
+    folder = normalize_path(request.args.get("folder", ""))
     like = f"%{q}%"
-    items = get_db().execute(ITEM_LIST_SQL, (like, like)).fetchall()
-    return render_template("inventory.html", items=items, q=q)
+    db = get_db()
+    items = db.execute(
+        ITEM_LIST_SQL, (like, like, like, folder, folder, folder, folder)
+    ).fetchall()
+    paths = [r["path"] for r in db.execute("SELECT path FROM items WHERE path != ''")]
+    return render_template(
+        "inventory.html",
+        items=items,
+        q=q,
+        folder=folder,
+        subfolders=_subfolders(paths, folder),
+    )
 
 
 @bp.route("/items/new", methods=("GET", "POST"))
@@ -85,12 +140,15 @@ def _item_form(item):
         name = request.form.get("name", "").strip()
         description = request.form.get("description", "").strip()
         model_url = request.form.get("model_url", "").strip()
+        path = normalize_path(request.form.get("path", ""))
 
         error = None
         if not name:
             error = "Name is required."
         elif len(name) > 120:
             error = "Name must be 120 characters or fewer."
+        elif len(path) > 300:
+            error = "Folder path must be 300 characters or fewer."
         elif model_url and not model_url.lower().startswith(("http://", "https://")):
             error = "Model link must start with http:// or https://."
 
@@ -108,9 +166,9 @@ def _item_form(item):
             db = get_db()
             if item is None:
                 cur = db.execute(
-                    "INSERT INTO items (name, description, model_url, image_filename, created_by)"
-                    " VALUES (?, ?, ?, ?, ?)",
-                    (name, description, model_url, new_image, g.user["id"]),
+                    "INSERT INTO items (name, description, model_url, path,"
+                    " image_filename, created_by) VALUES (?, ?, ?, ?, ?, ?)",
+                    (name, description, model_url, path, new_image, g.user["id"]),
                 )
                 item_id = cur.lastrowid
             else:
@@ -122,8 +180,8 @@ def _item_form(item):
                     final_image = None
                 db.execute(
                     "UPDATE items SET name = ?, description = ?, model_url = ?,"
-                    " image_filename = ? WHERE id = ?",
-                    (name, description, model_url, final_image, item["id"]),
+                    " path = ?, image_filename = ? WHERE id = ?",
+                    (name, description, model_url, path, final_image, item["id"]),
                 )
                 if final_image != old_image:
                     _remove_image(old_image)
@@ -133,7 +191,15 @@ def _item_form(item):
             return redirect(url_for("inventory.item_detail", item_id=item_id))
 
     form = request.form if request.method == "POST" else None
-    return render_template("item_form.html", item=item, form=form)
+    # "Add item" from inside a folder pre-fills that folder.
+    prefill_path = normalize_path(request.args.get("path", "")) if item is None else ""
+    return render_template(
+        "item_form.html",
+        item=item,
+        form=form,
+        folders=_all_folders(),
+        prefill_path=prefill_path,
+    )
 
 
 @bp.get("/items/<int:item_id>")

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS items (
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     model_url TEXT NOT NULL DEFAULT '',
+    path TEXT NOT NULL DEFAULT '',
     image_filename TEXT,
     created_by INTEGER REFERENCES users(id),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))

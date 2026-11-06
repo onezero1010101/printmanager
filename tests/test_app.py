@@ -138,6 +138,87 @@ def test_search(auth):
     assert b"Benchy" not in page
 
 
+# --- folders ----------------------------------------------------------------
+
+
+def test_path_is_normalized_and_shown(auth, app):
+    item_id = make_item(auth, "Hook", path=" \\Household\\\\Hooks/../ ")
+    with app.app_context():
+        path = get_db().execute(
+            "SELECT path FROM items WHERE id = ?", (item_id,)
+        ).fetchone()[0]
+    assert path == "Household/Hooks"
+    page = auth.get(f"/items/{item_id}").data
+    assert b"folder=Household%2FHooks" in page or b"folder=Household/Hooks" in page
+
+
+def test_folder_browsing(auth):
+    make_item(auth, "Wall hook", path="Household/Hooks")
+    make_item(auth, "Shelf bracket", path="Household/Brackets")
+    make_item(auth, "Benchy", path="Toys")
+    make_item(auth, "Loose item")
+    make_item(auth, "Prefix decoy", path="Household2")
+
+    root = auth.get("/").data
+    for name in (b"Wall hook", b"Shelf bracket", b"Benchy", b"Loose item"):
+        assert name in root
+    assert b"Toys" in root  # subfolder chip
+
+    household = auth.get("/?folder=Household").data
+    assert b"Wall hook" in household and b"Shelf bracket" in household
+    assert b"Benchy" not in household
+    assert b"Prefix decoy" not in household  # Household2 is a different folder
+    assert b"Hooks" in household and b"Brackets" in household  # subfolder chips
+
+    hooks = auth.get("/?folder=Household/Hooks").data
+    assert b"Wall hook" in hooks and b"Shelf bracket" not in hooks
+
+    assert b"No items found" in auth.get("/?folder=Nope").data
+
+
+def test_new_item_form_prefills_folder_and_suggests_existing(auth):
+    make_item(auth, "Wall hook", path="Household/Hooks")
+    page = auth.get("/items/new?path=Toys").data
+    assert b'value="Toys"' in page
+    assert b'<option value="Household">' in page
+    assert b'<option value="Household/Hooks">' in page
+
+
+def test_existing_database_gets_path_column(tmp_path):
+    import sqlite3
+
+    from printmanager import create_app
+
+    dbfile = tmp_path / "old.db"
+    con = sqlite3.connect(dbfile)
+    con.executescript(
+        """
+        CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL);
+        CREATE TABLE items (id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+            model_url TEXT NOT NULL DEFAULT '', image_filename TEXT,
+            created_by INTEGER REFERENCES users(id),
+            created_at TEXT NOT NULL DEFAULT (datetime('now')));
+        INSERT INTO items (name) VALUES ('Old item');
+        """
+    )
+    con.commit()
+    con.close()
+
+    app = create_app(
+        {
+            "TESTING": True,
+            "SECRET_KEY": "test",
+            "DATABASE": str(dbfile),
+            "UPLOAD_FOLDER": str(tmp_path / "uploads"),
+        }
+    )
+    with app.app_context():
+        row = get_db().execute("SELECT name, path FROM items").fetchone()
+    assert row["name"] == "Old item" and row["path"] == ""
+
+
 # --- queue ------------------------------------------------------------------
 
 
