@@ -23,7 +23,7 @@
     <legend>Spool location</legend>
     <label class="radio"><input type="radio" name="location_mode" value="any" {{ 'checked' if not location }}> Any location (use every spool)</label>
     <label class="radio"><input type="radio" name="location_mode" value="only" {{ 'checked' if location }}> Only spools in:
-      <input type="text" name="location" value="{{ location }}" maxlength="100" list="spool-locations" placeholder="e.g. Tim">
+      <input type="text" name="location" value="{{ location }}" maxlength="100" list="spool-locations" placeholder="e.g. Production">
     </label>
     <datalist id="spool-locations">{% for loc in locations %}<option value="{{ loc }}">{% endfor %}</datalist>
     <p class="muted">Archived and empty spools are never offered. Spools with the same material, name and colour appear once.</p>
