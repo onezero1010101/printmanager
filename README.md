@@ -4,7 +4,7 @@ A small web app for tracking 3D printing jobs. Keep an inventory of the things y
 
 - **Inventory:** name, description, photo, optional model link, search
 - **Local file path:** note where each item's STL files live on your PC (e.g. `C:\Models\Benchy` or `\\nas\prints\Benchy`), shown on the item page with a copy button. It's just a text note; the app never reads your files
-- **Folders:** the inventory is grouped into collapsible sections by the folder that contains each item's local path (so `C:\Models\Household\Hooks\Wall hook` is filed under Household / Hooks). Folders shared by every item are trimmed from the headings, and a toggle switches to a flat list
+- **Folders:** the inventory is grouped into collapsible sections by folder: items that share the same path are grouped under that folder, and an item alone in its own folder is filed under its parent (so `C:\Models\Household\Hooks\Wall hook` goes under Household / Hooks). Folders shared by every item are trimmed from the headings, and a toggle switches to a flat list
 - **Queue:** add any item with a quantity and note, then move it Queued → Printing → Completed
 - **History:** completed prints, with "print again" to requeue
 - **Logins:** username/password for a couple of users sharing one inventory and queue (no public signup)

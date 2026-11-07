@@ -1,6 +1,7 @@
 import os
 import re
 import uuid
+from collections import Counter
 
 from flask import (
     Blueprint,
@@ -57,21 +58,33 @@ def group_items(items):
     """Group items by the folder that contains their local path.
 
     Works with Windows (C:\\a\\b), UNC (\\\\nas\\share) and Linux (/a/b) paths.
-    The folder is the path minus its last segment, so an item pointing at
-    C:\\Models\\Household\\Hooks\\Wall hook is filed under Household / Hooks.
+    A path shared by several items is treated as a folder holding them, and
+    they are grouped under it. Otherwise the folder is the path minus its last
+    segment, so an item alone in its own folder, such as
+    C:\\Models\\Household\\Hooks\\Wall hook, is filed under Household / Hooks.
     The part of the folder path shared by every group is dropped from the
     headings. Returns [(heading, [items])], sorted, with items that have no
     path last.
     """
     groups = {}  # case-insensitive folder key -> (folder as first typed, items)
     unfiled = []
+    parsed = []
     for item in items:
         segments = [s for s in re.split(r"[\\/]+", item["path"] or "") if s]
-        if not segments:
+        if segments:
+            parsed.append((item, segments))
+        else:
             unfiled.append(item)
-            continue
-        folder = segments[:-1]
-        key = tuple(s.casefold() for s in folder)
+
+    # Several items with exactly the same path means that path is a folder
+    # holding all of them.
+    shared = Counter(tuple(s.casefold() for s in segs) for _item, segs in parsed)
+    for item, segments in parsed:
+        full = tuple(s.casefold() for s in segments)
+        if shared[full] > 1:
+            folder, key = segments, full
+        else:
+            folder, key = segments[:-1], full[:-1]
         groups.setdefault(key, (folder, []))[1].append(item)
 
     keys = sorted(groups)

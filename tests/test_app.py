@@ -245,6 +245,19 @@ def test_group_items_helper():
     groups = group_items([item("/home/me/models/Toys/x"), item("/home/me/models/Clips/y")])
     assert [h for h, _ in groups] == ["Clips", "Toys"]
 
+    # a path shared by several items is a folder of its own; a file path is
+    # filed under the folder containing it
+    groups = group_items(
+        [
+            item(r"C:\M\Hooks\Wall"),
+            item(r"C:\M\Hooks\Wall"),  # same folder holds two items
+            item(r"C:\M\Hooks\Coat"),  # alone in its own folder
+            item(r"C:\M\Toys\Benchy.stl"),
+        ]
+    )
+    assert [h for h, _ in groups] == ["Hooks", "Hooks / Wall", "Toys"]
+    assert [len(m) for _, m in groups] == [1, 2, 1]
+
     # one group keeps its last folder name; a bare name sits at the top level
     assert [h for h, _ in group_items([item(r"C:\Models\Hooks\a")])] == ["Hooks"]
     assert [h for h, _ in group_items([item("Benchy")])] == ["Top level"]
@@ -273,6 +286,19 @@ def test_inventory_is_grouped_by_folder(auth):
 
     searched = auth.get("/?q=hook").data.decode()
     assert "Wall hook" in searched and "Shelf bracket" not in searched
+
+
+def test_items_sharing_a_folder_are_grouped_together(auth):
+    shared = r"C:\Models\Household\Hooks"
+    make_item(auth, "Wall hook", path=shared)
+    make_item(auth, "Coat hook", path=shared)
+    make_item(auth, "Shelf bracket", path=r"C:\Models\Household\Brackets\Shelf bracket")
+    make_item(auth, "Benchy", path=r"C:\Models\Toys\Benchy")
+
+    page = auth.get("/").data.decode()
+    assert page.count('<details class="folder-group"') == 3
+    assert 'Household / Hooks <span class="count">2</span>' in page
+    assert 'Household / Brackets <span class="count">1</span>' in page
 
 
 def test_no_grouping_when_items_have_no_folders(auth):
