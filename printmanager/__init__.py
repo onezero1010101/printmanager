@@ -37,6 +37,9 @@ def create_app(test_config=None):
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         APP_TIMEZONE=os.environ.get("APP_TIMEZONE", "America/New_York"),
+        # Defaults for the Spoolman integration; the Settings page overrides them.
+        SPOOLMAN_URL=os.environ.get("SPOOLMAN_URL", ""),
+        SPOOLMAN_LOCATION=os.environ.get("SPOOLMAN_LOCATION", ""),
     )
     if test_config:
         app.config.update(test_config)
@@ -46,13 +49,14 @@ def create_app(test_config=None):
         ) or _load_or_create_secret(app.instance_path)
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-    from . import auth, db, files, inventory, jobs
+    from . import auth, db, files, inventory, jobs, settings
 
     db.init_app(app)
     app.register_blueprint(auth.bp)
     app.register_blueprint(files.bp)
     app.register_blueprint(inventory.bp)
     app.register_blueprint(jobs.bp)
+    app.register_blueprint(settings.bp)
 
     @app.before_request
     def csrf_protect():
@@ -84,6 +88,36 @@ def create_app(test_config=None):
         except Exception:
             pass  # fall back to UTC if the zone is unknown or tzdata is missing
         return dt.strftime("%b %d, %Y %I:%M %p").replace(" 0", " ")
+
+    @app.template_global()
+    def filament_choices():
+        """(options, error, enabled) for colour dropdowns; fetched once per request."""
+        if "filament_choices" not in g:
+            from . import spoolman
+            from .settings import spoolman_enabled
+
+            if spoolman_enabled():
+                options, error = spoolman.load_options()
+                g.filament_choices = (options, error, True)
+            else:
+                g.filament_choices = ([], "", False)
+        return g.filament_choices
+
+    @app.template_filter("swatch_css")
+    def swatch_css(value):
+        """CSS background for one or several hex colours (re-validated)."""
+        from .spoolman import clean_colors
+
+        colors = [c for c in clean_colors(value).split(",") if c]
+        if not colors:
+            return ""
+        if len(colors) == 1:
+            return "#" + colors[0]
+        step = 100 / len(colors)
+        stops = ", ".join(
+            f"#{c} {i * step:.1f}% {(i + 1) * step:.1f}%" for i, c in enumerate(colors)
+        )
+        return f"linear-gradient(90deg, {stops})"
 
     @app.errorhandler(400)
     @app.errorhandler(404)

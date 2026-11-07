@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import action with context %}
+{% from "_macros.html" import action, filament_select, filament_chip with context %}
 {% block title %}{{ item.name }}{% endblock %}
 {% block content %}
 <p><a class="muted" href="{{ url_for('inventory.index') }}">&larr; Inventory</a></p>
@@ -57,9 +57,10 @@
           <input type="number" name="quantity" value="1" min="1" max="999">
         </label>
         <label class="grow">Note <span class="muted">(optional)</span>
-          <input type="text" name="notes" maxlength="500" placeholder="Color, settings, who it's for">
+          <input type="text" name="notes" maxlength="500" placeholder="Settings, who it's for">
         </label>
       </div>
+      {{ filament_select() }}
       <button class="btn btn-primary" type="submit">Add to queue</button>
     </form>
 
@@ -92,11 +93,13 @@
 {% if jobs %}
 <div class="table-wrap">
   <table>
-    <thead><tr><th>Qty</th><th>Status</th><th>Queued</th><th>Completed</th><th>Note</th><th></th></tr></thead>
+    <thead><tr><th>Qty</th><th>Part</th><th>Colour</th><th>Status</th><th>Queued</th><th>Completed</th><th>Note</th><th></th></tr></thead>
     <tbody>
       {% for job in jobs %}
       <tr>
         <td>{{ job.quantity }}</td>
+        <td>{{ job.file_name or 'Whole item' }}</td>
+        <td>{{ filament_chip(job) }}</td>
         <td><span class="chip chip-{{ job.status }}">{{ job.status }}</span></td>
         <td>{{ job.queued_at|localtime }}{% if job.queued_by_name %}<br><span class="muted">{{ job.queued_by_name }}</span>{% endif %}</td>
         <td>{{ job.completed_at|localtime }}</td>

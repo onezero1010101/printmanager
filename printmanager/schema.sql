@@ -30,7 +30,17 @@ CREATE TABLE IF NOT EXISTS print_jobs (
     queued_by INTEGER REFERENCES users(id),
     queued_at TEXT NOT NULL DEFAULT (datetime('now')),
     started_at TEXT,
-    completed_at TEXT
+    completed_at TEXT,
+    -- A job is for the whole item, or for one STL/3MF of it (file_id). The file
+    -- name is copied so history still reads right if the file is removed later.
+    file_id INTEGER REFERENCES item_files(id) ON DELETE SET NULL,
+    file_name TEXT NOT NULL DEFAULT '',
+    -- The color and material chosen from Spoolman, copied at queue time so
+    -- history survives spools being used up or deleted. filament_color is one
+    -- hex value, or several separated by commas for multi-color filament.
+    filament_name TEXT NOT NULL DEFAULT '',
+    filament_material TEXT NOT NULL DEFAULT '',
+    filament_color TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON print_jobs(status);
@@ -52,3 +62,10 @@ CREATE TABLE IF NOT EXISTS item_files (
 );
 
 CREATE INDEX IF NOT EXISTS idx_files_item ON item_files(item_id);
+
+-- Settings changed on the Settings page. They override the environment
+-- variables of the same purpose (see settings.py).
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);

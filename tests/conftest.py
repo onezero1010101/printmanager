@@ -55,3 +55,31 @@ def auth(client):
     s = Session(client)
     s.login()
     return s
+
+
+@pytest.fixture(autouse=True)
+def _fresh_spoolman_cache():
+    from printmanager import spoolman
+
+    spoolman.clear_cache()
+    yield
+    spoolman.clear_cache()
+
+
+@pytest.fixture
+def spoolman_server():
+    from fake_spoolman import FakeSpoolman, spool
+
+    server = FakeSpoolman([
+        spool(1, 4, "Black", "PLA", "000000", remaining=740),
+        spool(2, 4, "Black", "PLA", "000000", remaining=100),   # same filament: merged
+        spool(3, 7, "Black", "PLA", "000000", vendor="Other"),  # same look, other filament id: merged
+        spool(4, 5, "Red", "PETG", "ff0000"),
+        spool(5, 6, "Old", "PLA", "00ff00", archived=True),     # archived: skipped
+        spool(6, 8, "Empty", "PLA", "0000ff", remaining=0),     # empty: skipped
+        spool(7, 9, "Shelf", "PLA", "ffffff", location="Shed"), # other location
+        spool(8, 10, "Rainbow", "PLA", "", multi_color_hexes="ff0000,00ff00"),
+        spool(9, 11, "Weird", "PLA", "red;x"),                  # invalid hex: no colour
+    ])
+    yield server
+    server.stop()

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import action, mini_cover with context %}
+{% from "_macros.html" import action, mini_cover, filament_chip, color_form with context %}
 {% block title %}History{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -12,7 +12,7 @@
   <li class="job">
     {{ mini_cover(job, job.item_name) }}
     <div class="job-main">
-      <a class="job-title" href="{{ url_for('inventory.item_detail', item_id=job.item_id) }}">{{ job.quantity }} &times; {{ job.item_name }}</a>
+      <a class="job-title" href="{{ url_for('inventory.item_detail', item_id=job.item_id) }}">{{ job.quantity }} &times; {{ job.item_name }}</a>{% if job.file_name %} <span class="part">{{ job.file_name }}</span>{% endif %} {{ filament_chip(job) }}
       <div class="muted">Finished {{ job.completed_at|localtime }}{% if job.queued_by_name %} · queued by {{ job.queued_by_name }}{% endif %}{% if job.notes %} · {{ job.notes }}{% endif %}</div>
     </div>
     <div class="job-actions">
