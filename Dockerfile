@@ -14,4 +14,4 @@ VOLUME /data
 EXPOSE 8000
 
 # One worker is plenty for two users and keeps SQLite writes simple.
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "4", "printmanager:create_app()"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "4", "--timeout", "300", "printmanager:create_app()"]

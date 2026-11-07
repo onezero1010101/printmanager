@@ -2,9 +2,18 @@
 
 {% macro action(job_id, name, label, cls="btn", confirm_text=None) %}
 <form method="post" action="{{ url_for('jobs.update_job', job_id=job_id, action=name) }}" class="inline"
-      {% if confirm_text %}onsubmit="return confirm({{ confirm_text|tojson }})"{% endif %}>
+      {% if confirm_text %}onsubmit='return confirm({{ confirm_text|tojson }})'{% endif %}>
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+  <button class="{{ cls }}" type="submit">{{ label }}</button>
+</form>
+{% endmacro %}
+
+{% macro file_action(file_id, action, label, cls="btn", confirm_text=None, next_url=None) %}
+<form method="post" action="{{ url_for('files.update_file', file_id=file_id, action=action) }}" class="inline"
+      {% if confirm_text %}onsubmit='return confirm({{ confirm_text|tojson }})'{% endif %}>
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
   <button class="{{ cls }}" type="submit">{{ label }}</button>
 </form>
 {% endmacro %}
@@ -12,8 +21,8 @@
 {% macro item_card(item) %}
 <article class="card">
   <a class="thumb" href="{{ url_for('inventory.item_detail', item_id=item.id) }}">
-    {% if item.image_filename %}
-    <img src="{{ url_for('inventory.uploaded_file', filename=item.image_filename) }}" alt="{{ item.name }}" loading="lazy">
+    {% if item.cover_id %}
+    <img src="{{ url_for('files.raw', file_id=item.cover_id) }}" alt="{{ item.name }}" loading="lazy">
     {% else %}
     <span class="no-photo">No photo</span>
     {% endif %}
@@ -36,9 +45,9 @@
 </article>
 {% endmacro %}
 
-{% macro thumb(filename, alt) %}
-{% if filename %}
-<img class="mini" src="{{ url_for('inventory.uploaded_file', filename=filename) }}" alt="{{ alt }}" loading="lazy">
+{% macro thumb(file_id, alt) %}
+{% if file_id %}
+<img class="mini" src="{{ url_for('files.raw', file_id=file_id) }}" alt="{{ alt }}" loading="lazy">
 {% else %}
 <span class="mini mini-empty"></span>
 {% endif %}

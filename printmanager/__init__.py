@@ -32,7 +32,8 @@ def create_app(test_config=None):
         UPLOAD_FOLDER=os.environ.get(
             "UPLOAD_FOLDER", os.path.join(app.instance_path, "uploads")
         ),
-        MAX_CONTENT_LENGTH=16 * 1024 * 1024,
+        # Largest single upload request (STL files can be big). Set MAX_UPLOAD_MB to change.
+        MAX_CONTENT_LENGTH=int(os.environ.get("MAX_UPLOAD_MB", "200")) * 1024 * 1024,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         APP_TIMEZONE=os.environ.get("APP_TIMEZONE", "America/New_York"),
@@ -45,10 +46,11 @@ def create_app(test_config=None):
         ) or _load_or_create_secret(app.instance_path)
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-    from . import auth, db, inventory, jobs
+    from . import auth, db, files, inventory, jobs
 
     db.init_app(app)
     app.register_blueprint(auth.bp)
+    app.register_blueprint(files.bp)
     app.register_blueprint(inventory.bp)
     app.register_blueprint(jobs.bp)
 

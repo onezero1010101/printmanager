@@ -33,6 +33,24 @@ def init_db():
     columns = {row["name"] for row in db.execute("PRAGMA table_info(items)")}
     if "path" not in columns:
         db.execute("ALTER TABLE items ADD COLUMN path TEXT NOT NULL DEFAULT ''")
+
+    # Single photos (items.image_filename) became rows in item_files.
+    old_photos = db.execute(
+        "SELECT id, image_filename FROM items WHERE image_filename IS NOT NULL"
+    ).fetchall()
+    for row in old_photos:
+        name = row["image_filename"]
+        try:
+            size = os.path.getsize(os.path.join(current_app.config["UPLOAD_FOLDER"], name))
+        except OSError:
+            size = 0
+        db.execute(
+            "INSERT INTO item_files (item_id, kind, original_name, stored_name, size, sort_order)"
+            " VALUES (?, 'image', ?, ?, ?, 0)",
+            (row["id"], name, name, size),
+        )
+    if old_photos:
+        db.execute("UPDATE items SET image_filename = NULL WHERE image_filename IS NOT NULL")
     db.commit()
 
 

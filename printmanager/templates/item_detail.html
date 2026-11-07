@@ -5,13 +5,33 @@
 <p><a class="muted" href="{{ url_for('inventory.index') }}">&larr; Inventory</a></p>
 
 <div class="detail">
-  <div class="detail-photo">
-    {% if item.image_filename %}
-    <img src="{{ url_for('inventory.uploaded_file', filename=item.image_filename) }}" alt="{{ item.name }}">
-    {% else %}
-    <span class="no-photo">No photo</span>
+  <div class="detail-media">
+    <div class="detail-photo">
+      {% if images %}
+      <a id="gallery-link" href="{{ url_for('files.raw', file_id=images[0].id) }}" target="_blank" rel="noopener">
+        <img id="gallery-main" src="{{ url_for('files.raw', file_id=images[0].id) }}" alt="{{ item.name }}">
+      </a>
+      {% else %}
+      <span class="no-photo">No photo</span>
+      {% endif %}
+    </div>
+    {% if images|length > 1 %}
+    <div class="thumbs" id="gallery-thumbs">
+      {% for f in images %}
+      <button type="button" class="thumb-btn{{ ' active' if loop.first }}"
+              data-src="{{ url_for('files.raw', file_id=f.id) }}"
+              data-download="{{ url_for('files.download', file_id=f.id) }}"
+              aria-label="Show {{ f.original_name }}">
+        <img src="{{ url_for('files.raw', file_id=f.id) }}" alt="" loading="lazy">
+      </button>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if images %}
+    <p class="muted media-links"><a id="gallery-download" href="{{ url_for('files.download', file_id=images[0].id) }}">Download photo</a></p>
     {% endif %}
   </div>
+
   <div class="detail-info">
     <h1>{{ item.name }}</h1>
     {% if item.description %}<p class="prewrap">{{ item.description }}</p>{% endif %}
@@ -44,13 +64,26 @@
     <div class="actions">
       <a class="btn" href="{{ url_for('inventory.edit_item', item_id=item.id) }}">Edit</a>
       <form class="inline" method="post" action="{{ url_for('inventory.delete_item', item_id=item.id) }}"
-            onsubmit="return confirm('Delete this item and all of its print history?')">
+            onsubmit="return confirm('Delete this item, its files and its print history?')">
         <input type="hidden" name="_csrf" value="{{ csrf_token }}">
         <button class="btn btn-danger" type="submit">Delete</button>
       </form>
     </div>
   </div>
 </div>
+
+{% if models %}
+<h2>3D models</h2>
+<div class="panel viewer-panel">
+  <div id="viewer" class="viewer" aria-label="3D model viewer"></div>
+  <div class="viewer-bar">
+    <span id="viewer-name" class="file-name"></span>
+    <span id="viewer-dims" class="muted"></span>
+  </div>
+  <p id="viewer-msg" class="muted viewer-msg">Choose "View in 3D" on a file below.</p>
+</div>
+<div id="file-list">{% include "_file_list.html" %}</div>
+{% endif %}
 
 <h2>Print history</h2>
 {% if jobs %}
@@ -102,4 +135,17 @@ document.querySelectorAll('[data-copy]').forEach(function (btn) {
   });
 });
 </script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='gallery.js') }}"></script>
+{% if models %}
+<script type="importmap">
+{ "imports": {
+    "three": "{{ url_for('static', filename='vendor/three/three.module.js') }}",
+    "three/addons/": "{{ url_for('static', filename='vendor/three/addons/') }}"
+} }
+</script>
+<script type="module" src="{{ url_for('static', filename='viewer.js') }}"></script>
+{% endif %}
 {% endblock %}

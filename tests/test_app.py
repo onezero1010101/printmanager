@@ -96,36 +96,6 @@ def test_item_validation(auth):
     assert b"must start with http" in resp.data
 
 
-def test_photo_upload_serving_and_removal(auth, app):
-    item_id = make_item(auth, image=(io.BytesIO(PNG), "boat.png"))
-    with app.app_context():
-        filename = get_db().execute(
-            "SELECT image_filename FROM items WHERE id = ?", (item_id,)
-        ).fetchone()[0]
-    assert filename.endswith(".png")
-
-    img = auth.get(f"/uploads/{filename}")
-    assert img.status_code == 200
-    assert img.headers["X-Content-Type-Options"] == "nosniff"
-
-    auth.post(
-        f"/items/{item_id}/edit",
-        data={"name": "Benchy", "remove_image": "1"},
-        content_type="multipart/form-data",
-    )
-    assert auth.get(f"/uploads/{filename}").status_code == 404
-
-
-def test_non_image_upload_rejected(auth):
-    resp = auth.post(
-        "/items/new",
-        data={"name": "x", "image": (io.BytesIO(b"<script>"), "evil.html")},
-        content_type="multipart/form-data",
-    )
-    assert resp.status_code == 200
-    assert b"PNG, JPG, GIF or WebP" in resp.data
-
-
 def saved_path(app, item_id):
     with app.app_context():
         return get_db().execute(
@@ -311,7 +281,7 @@ def test_no_grouping_when_items_have_no_folders(auth):
 
 
 def test_uploads_require_login(client):
-    assert client.get("/uploads/anything.png").status_code == 302
+    assert client.get("/files/1/raw").status_code == 302
 
 
 def test_search(auth):

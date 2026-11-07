@@ -1,30 +1,26 @@
-import os
 import re
-import uuid
 from collections import Counter
 
 from flask import (
     Blueprint,
     abort,
-    current_app,
     flash,
     g,
     redirect,
     render_template,
     request,
-    send_from_directory,
     url_for,
 )
 
 from .auth import login_required
 from .db import get_db
+from .files import COVER_ID_SQL, files_for_item, remove_item_files, save_uploads
 
 bp = Blueprint("inventory", __name__)
 
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
-
-ITEM_LIST_SQL = """
+ITEM_LIST_SQL = f"""
 SELECT i.*,
+       {COVER_ID_SQL} AS cover_id,
        COALESCE(SUM(CASE WHEN j.status = 'queued' THEN j.quantity END), 0) AS queued_qty,
        COALESCE(SUM(CASE WHEN j.status = 'printing' THEN j.quantity END), 0) AS printing_qty,
        COALESCE(SUM(CASE WHEN j.status = 'completed' THEN j.quantity END), 0) AS completed_qty
@@ -34,24 +30,6 @@ WHERE i.name LIKE ? OR i.description LIKE ?
 GROUP BY i.id
 ORDER BY i.name COLLATE NOCASE
 """
-
-
-def _save_image(storage):
-    ext = os.path.splitext(storage.filename)[1].lower().lstrip(".")
-    if ext not in ALLOWED_EXTENSIONS:
-        raise ValueError("Photo must be a PNG, JPG, GIF or WebP image.")
-    name = f"{uuid.uuid4().hex}.{ext}"
-    storage.save(os.path.join(current_app.config["UPLOAD_FOLDER"], name))
-    return name
-
-
-def _remove_image(name):
-    if not name:
-        return
-    try:
-        os.remove(os.path.join(current_app.config["UPLOAD_FOLDER"], name))
-    except FileNotFoundError:
-        pass
 
 
 def group_items(items):
@@ -159,46 +137,49 @@ def _item_form(item):
         elif model_url and not model_url.lower().startswith(("http://", "https://")):
             error = "Model link must start with http:// or https://."
 
-        new_image = None
-        upload = request.files.get("image")
-        if not error and upload and upload.filename:
-            try:
-                new_image = _save_image(upload)
-            except ValueError as exc:
-                error = str(exc)
-
         if error:
             flash(error, "error")
+            if any(f.filename for f in request.files.getlist("files")):
+                flash("Your files weren't added. Add them again once the form is fixed.", "error")
         else:
             db = get_db()
             if item is None:
                 cur = db.execute(
-                    "INSERT INTO items (name, description, model_url, path,"
-                    " image_filename, created_by) VALUES (?, ?, ?, ?, ?, ?)",
-                    (name, description, model_url, path, new_image, g.user["id"]),
+                    "INSERT INTO items (name, description, model_url, path, created_by)"
+                    " VALUES (?, ?, ?, ?, ?)",
+                    (name, description, model_url, path, g.user["id"]),
                 )
                 item_id = cur.lastrowid
             else:
-                old_image = item["image_filename"]
-                final_image = old_image
-                if new_image:
-                    final_image = new_image
-                elif request.form.get("remove_image"):
-                    final_image = None
                 db.execute(
                     "UPDATE items SET name = ?, description = ?, model_url = ?,"
-                    " path = ?, image_filename = ? WHERE id = ?",
-                    (name, description, model_url, path, final_image, item["id"]),
+                    " path = ? WHERE id = ?",
+                    (name, description, model_url, path, item["id"]),
                 )
-                if final_image != old_image:
-                    _remove_image(old_image)
                 item_id = item["id"]
             db.commit()
-            flash("Item saved.", "success")
+
+            saved, errors = save_uploads(request.files.getlist("files"), item_id)
+            for message in errors:
+                flash(message, "error")
+            flash(
+                "Item saved."
+                + (f" Added {saved} file{'s' if saved != 1 else ''}." if saved else ""),
+                "success",
+            )
             return redirect(url_for("inventory.item_detail", item_id=item_id))
 
     form = request.form if request.method == "POST" else None
-    return render_template("item_form.html", item=item, form=form)
+    images, models = files_for_item(item["id"]) if item else ([], [])
+    return render_template(
+        "item_form.html",
+        item=item,
+        form=form,
+        images=images,
+        models=models,
+        editable=True,
+        next_url=url_for("inventory.edit_item", item_id=item["id"]) if item else None,
+    )
 
 
 @bp.get("/items/<int:item_id>")
@@ -211,25 +192,26 @@ def item_detail(item_id):
         " WHERE j.item_id = ? ORDER BY j.id DESC",
         (item_id,),
     ).fetchall()
-    return render_template("item_detail.html", item=item, jobs=jobs)
+    images, models = files_for_item(item_id)
+    return render_template(
+        "item_detail.html",
+        item=item,
+        jobs=jobs,
+        images=images,
+        models=models,
+        viewer=True,
+        editable=False,
+        next_url=url_for("inventory.item_detail", item_id=item_id),
+    )
 
 
 @bp.post("/items/<int:item_id>/delete")
 @login_required
 def delete_item(item_id):
     item = _get_item(item_id)
+    remove_item_files(item_id)
     db = get_db()
     db.execute("DELETE FROM items WHERE id = ?", (item_id,))
     db.commit()
-    _remove_image(item["image_filename"])
     flash(f"Deleted {item['name']}.", "success")
     return redirect(url_for("inventory.index"))
-
-
-@bp.get("/uploads/<path:filename>")
-@login_required
-def uploaded_file(filename):
-    response = send_from_directory(current_app.config["UPLOAD_FOLDER"], filename)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.cache_control.max_age = 86400
-    return response

@@ -1,0 +1,63 @@
+{# Files of an item. Rendered on the item page (viewer=True, read only) and on
+   the edit page (editable=True, with reorder/remove). The upload endpoint
+   renders it too, so the edit page can refresh the list after a drop. #}
+{% from "_macros.html" import file_action with context %}
+
+{% if models %}
+{% if editable %}<h3 class="files-heading">3D models</h3>{% endif %}
+<ul class="files">
+  {% for f in models %}
+  <li class="file">
+    <span class="file-ext">{{ f.original_name|fileext }}</span>
+    <div class="file-main">
+      <span class="file-name">{{ f.original_name }}</span>
+      <span class="muted">{{ f.size|filesize }}</span>
+    </div>
+    <div class="file-actions">
+      {% if viewer %}
+      <button type="button" class="btn btn-small" data-view
+              data-url="{{ url_for('files.raw', file_id=f.id) }}"
+              data-ext="{{ f.stored_name.rsplit('.', 1)[-1] }}"
+              data-name="{{ f.original_name }}"
+              data-size="{{ f.size }}">View in 3D</button>
+      {% endif %}
+      <a class="btn btn-small" href="{{ url_for('files.download', file_id=f.id) }}">Download</a>
+      {% if editable %}
+        {% if not loop.first %}{{ file_action(f.id, 'up', 'Up', 'btn btn-small', None, next_url) }}{% endif %}
+        {% if not loop.last %}{{ file_action(f.id, 'down', 'Down', 'btn btn-small', None, next_url) }}{% endif %}
+        {{ file_action(f.id, 'delete', 'Remove', 'btn btn-small btn-danger', 'Remove ' ~ f.original_name ~ '?', next_url) }}
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% if models|length > 1 %}
+<p><a class="btn btn-small" href="{{ url_for('files.download_all', item_id=models[0].item_id) }}">Download all models (zip)</a></p>
+{% endif %}
+{% endif %}
+
+{% if editable and images %}
+<h3 class="files-heading">Photos <span class="muted">(the first one is the cover)</span></h3>
+<ul class="files">
+  {% for f in images %}
+  <li class="file file-image">
+    <img src="{{ url_for('files.raw', file_id=f.id) }}" alt="{{ f.original_name }}" loading="lazy">
+    <div class="file-main">
+      <span class="file-name">{{ f.original_name }}</span>
+      <span class="muted">{{ f.size|filesize }}{% if loop.first %} · cover{% endif %}</span>
+    </div>
+    <div class="file-actions">
+      <a class="btn btn-small" href="{{ url_for('files.download', file_id=f.id) }}">Download</a>
+      {% if not loop.first %}{{ file_action(f.id, 'cover', 'Make cover', 'btn btn-small', None, next_url) }}{% endif %}
+      {% if not loop.first %}{{ file_action(f.id, 'up', 'Up', 'btn btn-small', None, next_url) }}{% endif %}
+      {% if not loop.last %}{{ file_action(f.id, 'down', 'Down', 'btn btn-small', None, next_url) }}{% endif %}
+      {{ file_action(f.id, 'delete', 'Remove', 'btn btn-small btn-danger', 'Remove ' ~ f.original_name ~ '?', next_url) }}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if editable and not models and not images %}
+<p class="muted">No files yet.</p>
+{% endif %}

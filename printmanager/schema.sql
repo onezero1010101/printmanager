@@ -31,3 +31,20 @@ CREATE TABLE IF NOT EXISTS print_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON print_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_item ON print_jobs(item_id);
+
+-- Photos (kind 'image') and 3D models (kind 'model') attached to an item.
+-- The first image by sort_order is the item's cover. Files live in the upload
+-- folder under stored_name; original_name is what people see and download.
+CREATE TABLE IF NOT EXISTS item_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('image', 'model')),
+    original_name TEXT NOT NULL,
+    stored_name TEXT NOT NULL,
+    size INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    uploaded_by INTEGER REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_files_item ON item_files(item_id);

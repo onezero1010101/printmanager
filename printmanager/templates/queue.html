@@ -21,7 +21,7 @@
 <ul class="jobs">
   {% for job in printing %}
   <li class="job">
-    {{ thumb(job.image_filename, job.item_name) }}
+    {{ thumb(job.cover_id, job.item_name) }}
     <div class="job-main">
       <a class="job-title" href="{{ url_for('inventory.item_detail', item_id=job.item_id) }}">{{ job.quantity }} &times; {{ job.item_name }}</a>
       <div class="muted">Started {{ job.started_at|localtime }}{% if job.notes %} · {{ job.notes }}{% endif %}</div>
@@ -40,7 +40,7 @@
 <ul class="jobs">
   {% for job in queued %}
   <li class="job">
-    {{ thumb(job.image_filename, job.item_name) }}
+    {{ thumb(job.cover_id, job.item_name) }}
     <div class="job-main">
       <a class="job-title" href="{{ url_for('inventory.item_detail', item_id=job.item_id) }}">{{ job.quantity }} &times; {{ job.item_name }}</a>
       <div class="muted">Queued {{ job.queued_at|localtime }}{% if job.queued_by_name %} by {{ job.queued_by_name }}{% endif %}{% if job.notes %} · {{ job.notes }}{% endif %}</div>

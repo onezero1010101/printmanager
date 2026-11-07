@@ -19,19 +19,42 @@
       <input type="text" name="path" value="{{ f.path or '' }}" maxlength="500"
              placeholder="C:\Users\you\3D Models\Benchy" spellcheck="false" autocomplete="off">
     </label>
-    <label>Photo
-      <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
-    </label>
-    {% if item and item.image_filename %}
-    <div class="current-photo">
-      <img src="{{ url_for('inventory.uploaded_file', filename=item.image_filename) }}" alt="Current photo">
-      <label class="check"><input type="checkbox" name="remove_image" value="1"> Remove current photo</label>
+
+    {% if not item %}
+    <div id="dropzone" class="dropzone" data-mode="attach">
+      <p><strong>Drop STL, 3MF or photo files anywhere on this page</strong>, or choose them:</p>
+      <input type="file" id="file-input" name="files" multiple accept=".stl,.3mf,.png,.jpg,.jpeg,.gif,.webp">
+      <ul class="drop-list"></ul>
+      <p class="muted">Files are added when you save (up to {{ (config.MAX_CONTENT_LENGTH / 1048576)|int }} MB in total).</p>
     </div>
     {% endif %}
+
     <div class="actions">
       <button class="btn btn-primary" type="submit">Save</button>
       <a class="btn" href="{{ url_for('inventory.item_detail', item_id=item.id) if item else url_for('inventory.index') }}">Cancel</a>
     </div>
   </form>
 </div>
+
+{% if item %}
+<div class="panel narrow">
+  <h2>Files</h2>
+  <form id="dropzone" class="dropzone" data-mode="upload"
+        data-url="{{ url_for('files.upload', item_id=item.id) }}" data-csrf="{{ csrf_token }}"
+        method="post" action="{{ url_for('files.upload', item_id=item.id) }}" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="next" value="{{ next_url }}">
+    <p><strong>Drop STL, 3MF or photo files anywhere on this page</strong>, or choose them:</p>
+    <input type="file" name="files" multiple accept=".stl,.3mf,.png,.jpg,.jpeg,.gif,.webp">
+    <button class="btn drop-submit" type="submit">Upload</button>
+    <ul class="drop-list"></ul>
+    <p class="muted">Files upload straight away and are added to the list below.</p>
+  </form>
+  <div id="file-list">{% include "_file_list.html" %}</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='dropzone.js') }}"></script>
 {% endblock %}
