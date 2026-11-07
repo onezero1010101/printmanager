@@ -1,11 +1,9 @@
-import re
-from collections import Counter
-
 from flask import (
     Blueprint,
     abort,
     flash,
     g,
+    make_response,
     redirect,
     render_template,
     request,
@@ -14,71 +12,170 @@ from flask import (
 
 from .auth import login_required
 from .db import get_db
-from .files import COVER_ID_SQL, files_for_item, remove_item_files, save_uploads
+from .files import (
+    COVER_ID_SQL,
+    FIRST_MODEL_ID_SQL,
+    files_for_item,
+    remove_item_files,
+    save_uploads,
+)
+from .folders import (
+    NO_PATH,
+    TOP,
+    build_tree,
+    common_depth,
+    folders_of,
+    in_folder,
+    path_segments,
+)
 
 bp = Blueprint("inventory", __name__)
 
 ITEM_LIST_SQL = f"""
 SELECT i.*,
        {COVER_ID_SQL} AS cover_id,
+       {FIRST_MODEL_ID_SQL} AS first_model_id,
+       (SELECT COUNT(*) FROM item_files f WHERE f.item_id = i.id AND f.kind = 'image') AS image_count,
+       (SELECT COUNT(*) FROM item_files f WHERE f.item_id = i.id AND f.kind = 'model') AS model_count,
        COALESCE(SUM(CASE WHEN j.status = 'queued' THEN j.quantity END), 0) AS queued_qty,
        COALESCE(SUM(CASE WHEN j.status = 'printing' THEN j.quantity END), 0) AS printing_qty,
        COALESCE(SUM(CASE WHEN j.status = 'completed' THEN j.quantity END), 0) AS completed_qty
 FROM items i
 LEFT JOIN print_jobs j ON j.item_id = i.id
-WHERE i.name LIKE ? OR i.description LIKE ?
 GROUP BY i.id
 ORDER BY i.name COLLATE NOCASE
 """
 
+# "Missing" filters: key -> (label, is this item missing it?)
+MISSING = {
+    "path": ("No local path", lambda i: not i["path"]),
+    "model": ("No 3D model", lambda i: not i["model_count"]),
+    "photo": ("No photo", lambda i: not i["image_count"]),
+}
+VIEWS = ("cards", "list")
 
-def group_items(items):
-    """Group items by the folder that contains their local path.
 
-    Works with Windows (C:\\a\\b), UNC (\\\\nas\\share) and Linux (/a/b) paths.
-    A path shared by several items is treated as a folder holding them, and
-    they are grouped under it. Otherwise the folder is the path minus its last
-    segment, so an item alone in its own folder, such as
-    C:\\Models\\Household\\Hooks\\Wall hook, is filed under Household / Hooks.
-    The part of the folder path shared by every group is dropped from the
-    headings. Returns [(heading, [items])], sorted, with items that have no
-    path last.
-    """
-    groups = {}  # case-insensitive folder key -> (folder as first typed, items)
-    unfiled = []
-    parsed = []
+def _load_items():
+    """Every item as a dict, with its counts and what its card needs to show."""
+    db = get_db()
+    items = [dict(row) for row in db.execute(ITEM_LIST_SQL)]
+    models = {
+        row["id"]: row
+        for row in db.execute(
+            "SELECT id, stored_name, size FROM item_files WHERE kind = 'model'"
+        )
+    }
     for item in items:
-        segments = [s for s in re.split(r"[\\/]+", item["path"] or "") if s]
-        if segments:
-            parsed.append((item, segments))
-        else:
-            unfiled.append(item)
+        model = models.get(item["first_model_id"])
+        item["first_model_ext"] = model["stored_name"].rsplit(".", 1)[-1] if model else ""
+        item["first_model_size"] = model["size"] if model else 0
+        has_preview = (
+            bool(item["preview_name"]) and item["preview_file_id"] == item["first_model_id"]
+        )
+        # No photo, but a model: the browser should draw a picture of it (see previews.js).
+        item["needs_preview"] = (
+            not item["cover_id"] and bool(item["first_model_id"]) and not has_preview
+        )
+    return items
 
-    # Several items with exactly the same path means that path is a folder
-    # holding all of them.
-    shared = Counter(tuple(s.casefold() for s in segs) for _item, segs in parsed)
-    for item, segments in parsed:
-        full = tuple(s.casefold() for s in segments)
-        if shared[full] > 1:
-            folder, key = segments, full
-        else:
-            folder, key = segments[:-1], full[:-1]
-        groups.setdefault(key, (folder, []))[1].append(item)
 
-    keys = sorted(groups)
-    common = 0
-    if keys:
-        limit = max(min(len(k) for k in keys) - 1, 0)  # always keep a last segment
-        while common < limit and len({k[common] for k in keys}) == 1:
-            common += 1
+@bp.get("/")
+@login_required
+def index():
+    q = request.args.get("q", "").strip()
+    folder = request.args.get("folder", "").strip()
+    missing = []
+    for key in request.args.get("missing", "").split(","):
+        if key in MISSING and key not in missing:
+            missing.append(key)
+    view = request.args.get("view")
+    if view not in VIEWS:
+        view = request.cookies.get("pm_view")
+    if view not in VIEWS:
+        view = "cards"
 
-    result = []
-    for key in keys:
-        folder, members = groups[key]
-        result.append((" / ".join(folder[common:]) or "Top level", members))
-    if unfiled:
-        result.append(("No folder path", unfiled))
-    return result
+    items = _load_items()
+    folders = folders_of(items)
+    depth = common_depth(folders.values())
+
+    needle = q.casefold()
+    matching = [
+        item
+        for item in items
+        if (not needle or needle in f"{item['name']}\n{item['description']}\n{item['path']}".casefold())
+        and all(MISSING[key][1](item) for key in missing)
+    ]
+    filtering = bool(needle or missing)
+    tree, specials = build_tree(
+        items,
+        folders,
+        depth,
+        {item["id"] for item in matching},
+        selected=folder,
+        open_all=filtering,
+    )
+
+    visible = [item for item in matching if in_folder(item["id"], folders, folder)]
+    for item in visible:
+        item["folder_label"] = " / ".join(folders[item["id"]][depth:]) if item["id"] in folders else ""
+
+    def link(**overrides):
+        """URL of this page with some settings changed (empty values are dropped)."""
+        params = {"q": q, "folder": folder, "missing": ",".join(missing)}
+        params.update(overrides)
+        return url_for("inventory.index", **{k: v for k, v in params.items() if v})
+
+    chips = []
+    for key, (label, is_missing) in MISSING.items():
+        active = key in missing
+        toggled = [k for k in missing if k != key] if active else missing + [key]
+        chips.append(
+            {
+                "key": key,
+                "label": label,
+                "count": sum(1 for item in items if is_missing(item)),
+                "active": active,
+                "url": link(missing=",".join(toggled)),
+            }
+        )
+
+    segments = path_segments(folder)
+    crumbs = (
+        [(segments[i], "/".join(segments[: i + 1])) for i in range(depth, len(segments))]
+        if folder not in ("", NO_PATH, TOP)
+        else []
+    )
+    if folder == NO_PATH:
+        title = "No local path"
+    elif folder == TOP:
+        title = "Top level"
+    elif crumbs:
+        title = crumbs[-1][0]
+    else:
+        title = "All items"
+
+    response = make_response(
+        render_template(
+            "inventory.html",
+            items=visible,
+            total_items=len(items),
+            total_matching=len(matching),
+            q=q,
+            folder=folder,
+            missing=missing,
+            filtering=filtering,
+            view=view,
+            tree=tree,
+            specials=specials,
+            chips=chips,
+            crumbs=crumbs,
+            title=title,
+            link=link,
+        )
+    )
+    if request.args.get("view") in VIEWS:
+        response.set_cookie("pm_view", view, max_age=365 * 24 * 3600, samesite="Lax", httponly=True)
+    return response
 
 
 def _get_item(item_id):
@@ -86,24 +183,6 @@ def _get_item(item_id):
     if item is None:
         abort(404)
     return item
-
-
-@bp.get("/")
-@login_required
-def index():
-    q = request.args.get("q", "").strip()
-    like = f"%{q}%"
-    items = get_db().execute(ITEM_LIST_SQL, (like, like)).fetchall()
-    groups = group_items(items)
-    can_group = len(groups) > 1
-    return render_template(
-        "inventory.html",
-        items=items,
-        q=q,
-        groups=groups,
-        can_group=can_group,
-        use_groups=can_group and request.args.get("group") != "0",
-    )
 
 
 @bp.route("/items/new", methods=("GET", "POST"))
@@ -193,6 +272,10 @@ def item_detail(item_id):
         (item_id,),
     ).fetchall()
     images, models = files_for_item(item_id)
+    first = models[0] if models else None
+    has_preview = bool(
+        first and item["preview_name"] and item["preview_file_id"] == first["id"]
+    )
     return render_template(
         "item_detail.html",
         item=item,
@@ -202,6 +285,8 @@ def item_detail(item_id):
         viewer=True,
         editable=False,
         next_url=url_for("inventory.item_detail", item_id=item_id),
+        show_preview=has_preview and not images,
+        needs_preview=bool(first) and not images and not has_preview,
     )
 
 

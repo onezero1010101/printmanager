@@ -18,37 +18,113 @@
 </form>
 {% endmacro %}
 
+{# ---- item pictures ------------------------------------------------------ #}
+
+{# The picture for an item: its cover photo (as a small thumbnail), else the
+   rendered 3D preview of its first model, else a placeholder. #}
+{% macro cover_img(item) -%}
+{%- if item.cover_id -%}
+<img class="cover-img" src="{{ url_for('files.thumb', file_id=item.cover_id) }}" alt="{{ item.name }}" loading="lazy">
+{%- elif item.preview_name and item.first_model_id and item.preview_file_id == item.first_model_id -%}
+<img class="cover-img is-preview" src="{{ url_for('files.preview', item_id=item.id, v=item.preview_file_id) }}" alt="{{ item.name }}" loading="lazy">
+{%- else -%}
+<span class="no-photo">{{ '3D model' if item.first_model_id else 'No photo' }}</span>
+{%- endif -%}
+{%- endmacro %}
+
+{# Attributes that tell previews.js to draw this item's 3D preview when the picture scrolls into view. #}
+{% macro preview_attrs(item) -%}
+{%- if item.needs_preview %} data-preview-model="{{ item.first_model_id }}" data-url="{{ url_for('files.raw', file_id=item.first_model_id) }}" data-ext="{{ item.first_model_ext }}" data-size="{{ item.first_model_size }}" data-upload="{{ url_for('files.save_preview', item_id=item.id) }}" data-alt="{{ item.name }}"{% endif -%}
+{%- endmacro %}
+
+{# Small picture for queue and history rows (job rows carry item_id and the same cover fields). #}
+{% macro mini_cover(job, alt) -%}
+{%- if job.cover_id -%}
+<img class="mini" src="{{ url_for('files.thumb', file_id=job.cover_id) }}" alt="{{ alt }}" loading="lazy">
+{%- elif job.preview_name and job.first_model_id and job.preview_file_id == job.first_model_id -%}
+<img class="mini is-preview" src="{{ url_for('files.preview', item_id=job.item_id, v=job.preview_file_id) }}" alt="{{ alt }}" loading="lazy">
+{%- else -%}
+<span class="mini mini-empty"></span>
+{%- endif -%}
+{%- endmacro %}
+
+{# Little markers for what an item is missing. #}
+{% macro gaps(item) -%}
+{%- if not item.path %}<span class="chip chip-gap">No path</span>{% endif -%}
+{%- if not item.model_count %}<span class="chip chip-gap">No model</span>{% endif -%}
+{%- if not item.image_count %}<span class="chip chip-gap">No photo</span>{% endif -%}
+{%- endmacro %}
+
+{% macro qty_chips(item) -%}
+{%- if item.printing_qty %}<span class="chip chip-printing">{{ item.printing_qty }} printing</span>{% endif -%}
+{%- if item.queued_qty %}<span class="chip chip-queued">{{ item.queued_qty }} queued</span>{% endif -%}
+{%- if item.completed_qty %}<span class="chip chip-done">{{ item.completed_qty }} printed</span>{% endif -%}
+{%- endmacro %}
+
+{% macro queue_form(item) %}
+<form class="queue-form" method="post" action="{{ url_for('jobs.add_to_queue', item_id=item.id) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+  <input type="number" name="quantity" value="1" min="1" max="999" aria-label="Quantity for {{ item.name }}">
+  <button class="btn btn-primary" type="submit">Add to queue</button>
+</form>
+{% endmacro %}
+
 {% macro item_card(item) %}
 <article class="card">
-  <a class="thumb" href="{{ url_for('inventory.item_detail', item_id=item.id) }}">
-    {% if item.cover_id %}
-    <img src="{{ url_for('files.raw', file_id=item.cover_id) }}" alt="{{ item.name }}" loading="lazy">
-    {% else %}
-    <span class="no-photo">No photo</span>
-    {% endif %}
+  <a class="thumb" href="{{ url_for('inventory.item_detail', item_id=item.id) }}"{{ preview_attrs(item) }}>
+    {{ cover_img(item) }}
   </a>
   <div class="card-body">
     <h2><a href="{{ url_for('inventory.item_detail', item_id=item.id) }}">{{ item.name }}</a></h2>
+    {% if item.folder_label %}<span class="path">{{ item.folder_label }}</span>{% endif %}
     {% if item.description %}<p class="muted clamp">{{ item.description }}</p>{% endif %}
-    <div class="chips">
-      {% if item.printing_qty %}<span class="chip chip-printing">{{ item.printing_qty }} printing</span>{% endif %}
-      {% if item.queued_qty %}<span class="chip chip-queued">{{ item.queued_qty }} queued</span>{% endif %}
-      {% if item.completed_qty %}<span class="chip chip-done">{{ item.completed_qty }} printed</span>{% endif %}
-    </div>
-    <form class="queue-form" method="post" action="{{ url_for('jobs.add_to_queue', item_id=item.id) }}">
-      <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-      <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
-      <input type="number" name="quantity" value="1" min="1" max="999" aria-label="Quantity">
-      <button class="btn btn-primary" type="submit">Add to queue</button>
-    </form>
+    <div class="chips">{{ qty_chips(item) }}{{ gaps(item) }}</div>
+    {{ queue_form(item) }}
   </div>
 </article>
 {% endmacro %}
 
-{% macro thumb(file_id, alt) %}
-{% if file_id %}
-<img class="mini" src="{{ url_for('files.raw', file_id=file_id) }}" alt="{{ alt }}" loading="lazy">
-{% else %}
-<span class="mini mini-empty"></span>
-{% endif %}
+{% macro item_row(item) %}
+<li class="inv-row">
+  <a class="row-thumb" href="{{ url_for('inventory.item_detail', item_id=item.id) }}"{{ preview_attrs(item) }}>
+    {{ cover_img(item) }}
+  </a>
+  <div class="row-main">
+    <a class="row-title" href="{{ url_for('inventory.item_detail', item_id=item.id) }}">{{ item.name }}</a>
+    {% if item.folder_label %}<span class="path">{{ item.folder_label }}</span>{% endif %}
+    <div class="chips">{{ qty_chips(item) }}{{ gaps(item) }}</div>
+  </div>
+  {{ queue_form(item) }}
+</li>
+{% endmacro %}
+
+{# ---- folder tree -------------------------------------------------------- #}
+
+{% macro tree_counts(node) -%}
+<span class="tree-meta">
+  <span class="tree-count">{{ node.count }}</span>
+  {%- if node.no_model %}<span class="tree-warn" title="{{ node.no_model }} without a 3D model" aria-label="{{ node.no_model }} without a 3D model">{{ node.no_model }}</span>{% endif -%}
+</span>
+{%- endmacro %}
+
+{% macro tree_node(node, selected, link) %}
+<li>
+  {% if node.children %}
+  <details data-key="{{ node.key }}"{{ ' open' if node.open }}>
+    <summary>
+      <a class="tree-link{{ ' current' if node.key|lower == selected|lower }}" href="{{ link(folder=node.key) }}">{{ node.name }}</a>
+      {{ tree_counts(node) }}
+    </summary>
+    <ul>
+      {% for child in node.children %}{{ tree_node(child, selected, link) }}{% endfor %}
+    </ul>
+  </details>
+  {% else %}
+  <div class="tree-leaf">
+    <a class="tree-link{{ ' current' if node.key|lower == selected|lower }}" href="{{ link(folder=node.key) }}">{{ node.name }}</a>
+    {{ tree_counts(node) }}
+  </div>
+  {% endif %}
+</li>
 {% endmacro %}

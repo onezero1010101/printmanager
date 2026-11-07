@@ -262,7 +262,7 @@ def test_cover_and_ordering(auth, app):
     auth.post(f"/files/{by_name(app, item_id, 'c.png')['id']}/cover")
     assert images() == ["c.png", "a.png", "b.png"]
     cover_id = by_name(app, item_id, "c.png")["id"]
-    assert f"/files/{cover_id}/raw".encode() in auth.get("/").data  # card shows the cover
+    assert f"/files/{cover_id}/thumb".encode() in auth.get("/").data  # card shows the cover
 
     auth.post(f"/files/{by_name(app, item_id, 'c.png')['id']}/down")
     assert images() == ["a.png", "c.png", "b.png"]
@@ -278,7 +278,7 @@ def test_queue_and_history_show_the_cover_image(auth, app):
     item_id = make_item(auth, files=[(io.BytesIO(PNG), "p.png")])
     cover_id = file_rows(app, item_id)[0]["id"]
     auth.post(f"/items/{item_id}/queue", data={"quantity": "1"})
-    assert f"/files/{cover_id}/raw".encode() in auth.get("/queue").data
+    assert f"/files/{cover_id}/thumb".encode() in auth.get("/queue").data
 
 
 # --- deleting ---------------------------------------------------------------
@@ -357,3 +357,5 @@ def test_existing_single_photo_becomes_a_gallery_image(tmp_path):
             assert rows[0]["stored_name"] == "abc123.png"
             assert rows[0]["size"] == len(PNG)
             assert db.execute("SELECT image_filename FROM items").fetchone()[0] is None
+            columns = {r["name"] for r in db.execute("PRAGMA table_info(items)")}
+            assert {"path", "preview_name", "preview_file_id"} <= columns

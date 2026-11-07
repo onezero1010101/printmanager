@@ -1,8 +1,12 @@
 // 3D viewer for STL and 3MF files on the item page (three.js, bundled in static/vendor).
-import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
+import {
+  THREE,
+  loadModel,
+  addLights,
+  createPreviewRenderer,
+  uploadPreview,
+} from './modelrender.js';
 
 const container = document.getElementById('viewer');
 const nameEl = document.getElementById('viewer-name');
@@ -31,14 +35,7 @@ function start() {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 10000);
   camera.up.set(0, 0, 1); // STL and 3MF files are Z-up, like a printer bed
-
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x556070, 1.7));
-  const key = new THREE.DirectionalLight(0xffffff, 2.2);
-  key.position.set(1, -1.5, 2);
-  scene.add(key);
-  const fill = new THREE.DirectionalLight(0xffffff, 0.8);
-  fill.position.set(-1.5, 1, 0.5);
-  scene.add(fill);
+  addLights(scene);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.addEventListener('change', render);
@@ -76,28 +73,6 @@ function start() {
     }
     current = null;
     grid = null;
-  }
-
-  async function loadModel(url, ext) {
-    const response = await fetch(url, { credentials: 'same-origin' });
-    if (!response.ok) throw new Error('HTTP ' + response.status);
-    const buffer = await response.arrayBuffer();
-
-    if (ext === 'stl') {
-      const geometry = new STLLoader().parse(buffer);
-      geometry.computeVertexNormals(); // many exporters leave the stored normals empty
-      const material = new THREE.MeshStandardMaterial({
-        color: 0x6f9fd8,
-        roughness: 0.55,
-        metalness: 0.1,
-        side: THREE.DoubleSide,
-      });
-      return new THREE.Mesh(geometry, material);
-    }
-    if (ext === '3mf') {
-      return new ThreeMFLoader().parse(buffer);
-    }
-    throw new Error('Unsupported type ' + ext);
   }
 
   function place(object) {
@@ -138,6 +113,35 @@ function start() {
     dimsEl.textContent = fmt(size.x) + ' × ' + fmt(size.y) + ' × ' + fmt(size.z) + ' mm';
   }
 
+  // Items without a photo get a static picture of their first model for the
+  // inventory cards. The model is already on screen, so draw it from here.
+  async function savePreview(button) {
+    const uploadUrl = container.dataset.previewUrl;
+    if (!uploadUrl || button.dataset.id !== container.dataset.previewModel || !current) return;
+    delete container.dataset.previewUrl; // only once
+    let picture = null;
+    try {
+      picture = createPreviewRenderer();
+      const blob = await picture.render(current.clone());
+      const url = await uploadPreview(uploadUrl, button.dataset.id, blob);
+      if (url) {
+        const placeholder = document.querySelector('.detail-photo .no-photo');
+        if (placeholder) {
+          const img = document.createElement('img');
+          img.id = 'detail-preview';
+          img.className = 'is-preview';
+          img.alt = '3D preview';
+          img.src = url;
+          placeholder.replaceWith(img);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not save a 3D preview picture', err);
+    } finally {
+      if (picture) picture.dispose();
+    }
+  }
+
   async function show(button) {
     const id = ++loadId;
     buttons.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
@@ -149,6 +153,7 @@ function start() {
       if (id !== loadId) return; // another file was chosen meanwhile
       place(object);
       msgEl.textContent = HELP;
+      savePreview(button);
     } catch (err) {
       if (id !== loadId) return;
       console.error(err);

@@ -133,6 +133,7 @@ form.inline { display: inline; margin: 0; }
 }
 .thumb { aspect-ratio: 4 / 3; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; }
+.is-preview { object-fit: contain !important; }
 .no-photo { color: var(--muted); font-size: .9rem; }
 .card-body { padding: .85rem; display: flex; flex-direction: column; gap: .5rem; flex: 1; }
 .card-body h2 { margin: 0; font-size: 1.05rem; }
@@ -240,3 +241,71 @@ table { width: 100%; border-collapse: collapse; font-size: .92rem; }
 th, td { padding: .6rem .8rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
 th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
 tr:last-child td { border-bottom: 0; }
+
+/* Inventory: filters, folder tree, views */
+.filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: 1rem; }
+.filter-bar .spacer { flex: 1; }
+.chip-toggle {
+  display: inline-flex; gap: .35rem; align-items: center; padding: .25rem .7rem; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: .88rem;
+}
+.chip-toggle:hover { text-decoration: none; border-color: var(--muted); }
+.chip-toggle span { color: var(--muted); }
+.chip-toggle.active { background: var(--queued-bg); border-color: var(--queued); color: var(--queued); }
+.chip-toggle.active span { color: inherit; }
+.view-switch a.on { color: var(--text); font-weight: 700; pointer-events: none; }
+
+.inv-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.tree-panel {
+  position: sticky; top: .75rem; max-height: calc(100vh - 1.5rem); overflow: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .6rem;
+}
+.tree-panel-summary { display: none; cursor: pointer; font-weight: 600; }
+.tree-tools { display: flex; gap: .4rem; margin-bottom: .5rem; }
+.tree ul { list-style: none; margin: 0; padding-left: 1rem; }
+.tree > ul { padding-left: 0; }
+.tree summary {
+  display: flex; align-items: center; gap: .3rem; cursor: pointer; list-style: none;
+  padding: .15rem .2rem; border-radius: 6px;
+}
+.tree summary::-webkit-details-marker { display: none; }
+.tree summary::before { content: "\25B8"; width: 1rem; flex: none; color: var(--muted); transition: transform .1s; }
+.tree details[open] > summary::before { transform: rotate(90deg); }
+.tree summary:hover, .tree-leaf:hover { background: var(--bg); }
+.tree-leaf { display: flex; align-items: center; gap: .3rem; padding: .15rem .2rem .15rem 1.3rem; border-radius: 6px; }
+.tree-all { padding-left: .2rem; }
+.tree-link { flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
+.tree-link:hover { text-decoration: none; }
+.tree-link.current { font-weight: 700; color: var(--accent); }
+.tree-meta { display: flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--muted); flex: none; }
+.tree-warn { color: var(--queued); }
+.tree-warn::before { content: "\25CF\00a0"; }
+.tree-legend { margin: .6rem 0 0 .2rem; font-size: .8rem; }
+
+.inv-head { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; }
+.inv-title { margin: 0 0 .25rem; }
+.crumbs { margin: 0 0 .9rem; }
+
+.inv-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.inv-row {
+  display: flex; align-items: center; gap: .8rem; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem .7rem;
+}
+.row-thumb {
+  flex: none; width: 56px; height: 56px; border-radius: 8px; overflow: hidden; background: var(--bg);
+  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+}
+.row-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.row-thumb .no-photo { font-size: .6rem; text-align: center; line-height: 1.1; }
+.row-main { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: .15rem; }
+.row-title { font-weight: 600; color: var(--text); }
+.inv-row .queue-form { margin: 0; }
+
+.chip-gap { background: var(--queued-bg); color: var(--queued); font-weight: 500; }
+.path { font-size: .8rem; color: var(--muted); overflow-wrap: anywhere; }
+
+@media (max-width: 860px) {
+  .inv-layout { grid-template-columns: 1fr; }
+  .tree-panel { position: static; max-height: none; }
+  .tree-panel-summary { display: block; }
+}

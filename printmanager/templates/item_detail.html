@@ -11,8 +11,10 @@
       <a id="gallery-link" href="{{ url_for('files.raw', file_id=images[0].id) }}" target="_blank" rel="noopener">
         <img id="gallery-main" src="{{ url_for('files.raw', file_id=images[0].id) }}" alt="{{ item.name }}">
       </a>
+      {% elif show_preview %}
+      <img id="detail-preview" class="is-preview" src="{{ url_for('files.preview', item_id=item.id, v=item.preview_file_id) }}" alt="3D preview of {{ item.name }}">
       {% else %}
-      <span class="no-photo">No photo</span>
+      <span class="no-photo">{{ '3D model' if models else 'No photo' }}</span>
       {% endif %}
     </div>
     {% if images|length > 1 %}
@@ -22,7 +24,7 @@
               data-src="{{ url_for('files.raw', file_id=f.id) }}"
               data-download="{{ url_for('files.download', file_id=f.id) }}"
               aria-label="Show {{ f.original_name }}">
-        <img src="{{ url_for('files.raw', file_id=f.id) }}" alt="" loading="lazy">
+        <img src="{{ url_for('files.thumb', file_id=f.id) }}" alt="" loading="lazy">
       </button>
       {% endfor %}
     </div>
@@ -75,7 +77,8 @@
 {% if models %}
 <h2>3D models</h2>
 <div class="panel viewer-panel">
-  <div id="viewer" class="viewer" aria-label="3D model viewer"></div>
+  <div id="viewer" class="viewer" aria-label="3D model viewer"
+       {%- if needs_preview %} data-preview-model="{{ models[0].id }}" data-preview-url="{{ url_for('files.save_preview', item_id=item.id) }}"{% endif %}></div>
   <div class="viewer-bar">
     <span id="viewer-name" class="file-name"></span>
     <span id="viewer-dims" class="muted"></span>
@@ -140,12 +143,6 @@ document.querySelectorAll('[data-copy]').forEach(function (btn) {
 {% block scripts %}
 <script src="{{ url_for('static', filename='gallery.js') }}"></script>
 {% if models %}
-<script type="importmap">
-{ "imports": {
-    "three": "{{ url_for('static', filename='vendor/three/three.module.js') }}",
-    "three/addons/": "{{ url_for('static', filename='vendor/three/addons/') }}"
-} }
-</script>
 <script type="module" src="{{ url_for('static', filename='viewer.js') }}"></script>
 {% endif %}
 {% endblock %}

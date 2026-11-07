@@ -1,48 +1,104 @@
 {% extends "base.html" %}
-{% from "_macros.html" import item_card with context %}
+{% from "_macros.html" import item_card, item_row, tree_node, tree_counts with context %}
 {% block title %}Inventory{% endblock %}
 {% block content %}
 <div class="page-head">
   <h1>Inventory</h1>
   <div class="actions">
     <form class="search" method="get" action="{{ url_for('inventory.index') }}">
-      {% if request.args.get('group') == '0' %}<input type="hidden" name="group" value="0">{% endif %}
-      <input type="search" name="q" value="{{ q }}" placeholder="Search items">
+      {% if folder %}<input type="hidden" name="folder" value="{{ folder }}">{% endif %}
+      {% if missing %}<input type="hidden" name="missing" value="{{ missing|join(',') }}">{% endif %}
+      <input type="search" name="q" value="{{ q }}" placeholder="Search name, notes or path" aria-label="Search">
       <button class="btn" type="submit">Search</button>
     </form>
     <a class="btn btn-primary" href="{{ url_for('inventory.new_item') }}">Add item</a>
   </div>
 </div>
 
-{% if items %}
-  {% if can_group %}
-  <p class="view-toggle muted">
-    {% if use_groups %}Grouped by folder · <a href="{{ url_for('inventory.index', q=q or None, group=0) }}">Show flat list</a>
-    {% else %}Flat list · <a href="{{ url_for('inventory.index', q=q or None) }}">Group by folder</a>{% endif %}
-  </p>
-  {% endif %}
+{% if total_items %}
+<div class="filter-bar">
+  <span class="muted">Missing:</span>
+  {% for chip in chips %}
+  <a class="chip-toggle{{ ' active' if chip.active }}" href="{{ chip.url }}" aria-pressed="{{ 'true' if chip.active else 'false' }}">{{ chip.label }} <span>{{ chip.count }}</span></a>
+  {% endfor %}
+  {% if missing %}<a class="muted" href="{{ link(missing='') }}">Clear</a>{% endif %}
+  <span class="spacer"></span>
+  <span class="view-switch muted">View:
+    <a class="{{ 'on' if view == 'cards' }}" href="{{ link(view='cards') }}">Cards</a> ·
+    <a class="{{ 'on' if view == 'list' }}" href="{{ link(view='list') }}">List</a>
+  </span>
+</div>
 
-  {% if use_groups %}
-    {% for heading, members in groups %}
-    <details class="folder-group" open>
-      <summary>{{ heading }} <span class="count">{{ members|length }}</span></summary>
-      <div class="grid">
-        {% for item in members %}{{ item_card(item) }}{% endfor %}
+<div class="inv-layout">
+  <aside>
+    <details id="tree-panel" class="tree-panel" open>
+      <summary class="tree-panel-summary">Folders <span class="muted">· {{ title }}</span></summary>
+      <div class="tree-tools">
+        <button type="button" class="btn btn-small" id="tree-expand">Expand all</button>
+        <button type="button" class="btn btn-small" id="tree-collapse">Collapse all</button>
       </div>
+      <nav id="tree" class="tree" aria-label="Folders"{{ ' data-force-open' if filtering }}>
+        <ul>
+          <li>
+            <div class="tree-leaf tree-all">
+              <a class="tree-link{{ ' current' if not folder }}" href="{{ link(folder='') }}">All items</a>
+              <span class="tree-meta"><span class="tree-count">{{ total_matching }}</span></span>
+            </div>
+          </li>
+          {% for node in tree %}{{ tree_node(node, folder, link) }}{% endfor %}
+          {% for node in specials %}{{ tree_node(node, folder, link) }}{% endfor %}
+        </ul>
+        <p class="tree-legend muted"><span class="tree-warn"></span> items without a 3D model</p>
+      </nav>
     </details>
-    {% endfor %}
-  {% else %}
-  <div class="grid">
-    {% for item in items %}{{ item_card(item) }}{% endfor %}
-  </div>
-  {% endif %}
-{% elif q %}
-<p class="muted">No items match "{{ q }}".</p>
+  </aside>
+
+  <section class="inv-main">
+    <div class="inv-head">
+      <h2 class="inv-title">{{ title }}</h2>
+      <span class="muted">{{ items|length }} item{{ '' if items|length == 1 else 's' }}</span>
+    </div>
+    {% if crumbs %}
+    <p class="crumbs muted">
+      <a href="{{ link(folder='') }}">All items</a>
+      {% for name, key in crumbs %} / <a href="{{ link(folder=key) }}">{{ name }}</a>{% endfor %}
+    </p>
+    {% endif %}
+
+    {% if items %}
+      {% if view == 'list' %}
+      <ul class="inv-rows">
+        {% for item in items %}{{ item_row(item) }}{% endfor %}
+      </ul>
+      {% else %}
+      <div class="grid">
+        {% for item in items %}{{ item_card(item) }}{% endfor %}
+      </div>
+      {% endif %}
+    {% else %}
+    <div class="panel empty">
+      <h2>Nothing here</h2>
+      <p class="muted">
+        {% if filtering %}No items match your search and filters{% if folder %} in this folder{% endif %}.
+        {% else %}There are no items in this folder.{% endif %}
+      </p>
+      <a class="btn" href="{{ url_for('inventory.index') }}">Show all items</a>
+    </div>
+    {% endif %}
+  </section>
+</div>
 {% else %}
 <div class="panel empty">
   <h2>No items yet</h2>
-  <p class="muted">Add the things you print, with a photo and notes, then queue them up when you need more.</p>
+  <p class="muted">Add the things you print, with photos and models, then queue them up when you need more.</p>
   <a class="btn btn-primary" href="{{ url_for('inventory.new_item') }}">Add your first item</a>
 </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if total_items %}<script src="{{ url_for('static', filename='tree.js') }}"></script>{% endif %}
+{% if items|selectattr('needs_preview')|list %}
+<script type="module" src="{{ url_for('static', filename='previews.js') }}"></script>
 {% endif %}
 {% endblock %}

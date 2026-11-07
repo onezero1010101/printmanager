@@ -1,5 +1,6 @@
 """Photos and 3D model files attached to items: upload, view, download, order."""
 
+import io
 import os
 import re
 import tempfile
@@ -19,6 +20,7 @@ from flask import (
     send_file,
     url_for,
 )
+from PIL import Image, ImageOps
 
 from .auth import login_required, safe_path
 from .db import get_db
@@ -35,10 +37,20 @@ IMAGE_MIMETYPES = {
     "webp": "image/webp",
 }
 
-# SQL expression (for queries that alias items as "i") giving an item's cover image id.
+THUMB_SIZE = (480, 480)  # cards show these at about half this size, so they stay sharp on phones
+PREVIEW_MAX_BYTES = 1_500_000
+PREVIEW_MAX_SIDE = 2048
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+
+# SQL expressions (for queries that alias items as "i").
 COVER_ID_SQL = (
     "(SELECT f.id FROM item_files f"
     " WHERE f.item_id = i.id AND f.kind = 'image'"
+    " ORDER BY f.sort_order, f.id LIMIT 1)"
+)
+FIRST_MODEL_ID_SQL = (
+    "(SELECT f.id FROM item_files f"
+    " WHERE f.item_id = i.id AND f.kind = 'model'"
     " ORDER BY f.sort_order, f.id LIMIT 1)"
 )
 
@@ -51,11 +63,17 @@ def _disk_path(stored_name):
     return os.path.join(current_app.config["UPLOAD_FOLDER"], stored_name)
 
 
+def _thumb_name(stored_name):
+    return os.path.splitext(stored_name)[0] + ".thumb.webp"
+
+
 def _unlink(stored_name):
-    try:
-        os.remove(_disk_path(stored_name))
-    except FileNotFoundError:
-        pass
+    """Delete a stored file and its thumbnail, if it has one."""
+    for name in (stored_name, _thumb_name(stored_name)):
+        try:
+            os.remove(_disk_path(name))
+        except FileNotFoundError:
+            pass
 
 
 def _clean_name(filename):
@@ -78,7 +96,7 @@ def _valid_content(path, ext):
     if ext == "3mf":
         return zipfile.is_zipfile(path)
     if ext == "png":
-        return head.startswith(b"\x89PNG\r\n\x1a\n")
+        return head.startswith(PNG_MAGIC)
     if ext in ("jpg", "jpeg"):
         return head.startswith(b"\xff\xd8\xff")
     if ext == "gif":
@@ -86,6 +104,25 @@ def _valid_content(path, ext):
     if ext == "webp":
         return head[:4] == b"RIFF" and head[8:12] == b"WEBP"
     return False
+
+
+def _make_thumbnail(source, dest):
+    """Write a small WebP copy of an image. Raises if the image can't be decoded."""
+    tmp = dest + ".tmp"
+    try:
+        with Image.open(source) as img:
+            img.draft("RGB", THUMB_SIZE)  # lets JPEG decode at reduced size (a no-op otherwise)
+            img = ImageOps.exif_transpose(img)  # phone photos carry their rotation in metadata
+            img.thumbnail(THUMB_SIZE, Image.Resampling.LANCZOS)
+            if img.mode not in ("RGB", "RGBA"):
+                has_alpha = "A" in img.getbands() or "transparency" in img.info
+                img = img.convert("RGBA" if has_alpha else "RGB")
+            img.save(tmp, "WEBP", quality=80, method=4)
+        os.replace(tmp, dest)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
 
 
 def save_upload(storage, item_id):
@@ -108,6 +145,13 @@ def save_upload(storage, item_id):
     if not _valid_content(path, ext):
         os.remove(path)
         raise ValueError(f"{label}: this doesn't look like a valid {ext.upper()} file.")
+
+    if kind == "image":
+        try:
+            _make_thumbnail(path, _disk_path(_thumb_name(stored_name)))
+        except Exception:
+            # Not fatal: the thumbnail is retried (and falls back to the original) when shown.
+            current_app.logger.warning("Could not make a thumbnail for %s", label, exc_info=True)
 
     db = get_db()
     next_order = db.execute(
@@ -159,7 +203,7 @@ def files_for_item(item_id):
 
 
 def remove_item_files(item_id):
-    """Delete every file of an item, from the database and from disk."""
+    """Delete every file of an item (and its 3D preview), from the database and from disk."""
     db = get_db()
     names = [
         r["stored_name"]
@@ -167,10 +211,35 @@ def remove_item_files(item_id):
             "SELECT stored_name FROM item_files WHERE item_id = ?", (item_id,)
         )
     ]
+    item = db.execute("SELECT preview_name FROM items WHERE id = ?", (item_id,)).fetchone()
+    if item and item["preview_name"]:
+        names.append(item["preview_name"])
     db.execute("DELETE FROM item_files WHERE item_id = ?", (item_id,))
     db.commit()
     for name in names:
         _unlink(name)
+
+
+def drop_stale_preview(item_id):
+    """Forget the 3D preview if the item's first model is no longer the one it shows."""
+    db = get_db()
+    item = db.execute(
+        "SELECT preview_name, preview_file_id FROM items WHERE id = ?", (item_id,)
+    ).fetchone()
+    if item is None or not item["preview_name"]:
+        return
+    first = db.execute(
+        "SELECT id FROM item_files WHERE item_id = ? AND kind = 'model'"
+        " ORDER BY sort_order, id LIMIT 1",
+        (item_id,),
+    ).fetchone()
+    if first is None or first["id"] != item["preview_file_id"]:
+        db.execute(
+            "UPDATE items SET preview_name = NULL, preview_file_id = NULL WHERE id = ?",
+            (item_id,),
+        )
+        db.commit()
+        _unlink(item["preview_name"])
 
 
 def _get_file(file_id):
@@ -180,6 +249,13 @@ def _get_file(file_id):
     if row is None:
         abort(404)
     return row
+
+
+def _stored_path(f):
+    path = _disk_path(f["stored_name"])
+    if not os.path.exists(path):
+        abort(404)
+    return path
 
 
 def _reorder(f, action):
@@ -204,6 +280,12 @@ def _reorder(f, action):
     db.commit()
 
 
+def _image_response(path, mimetype):
+    response = send_file(path, mimetype=mimetype, conditional=True, max_age=86400)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 @bp.app_template_filter("filesize")
 def filesize(num):
     num = float(num or 0)
@@ -225,11 +307,25 @@ def raw(file_id):
     """The file itself, for showing images and feeding the 3D viewer."""
     f = _get_file(file_id)
     mimetype = IMAGE_MIMETYPES.get(extension(f["stored_name"]), "application/octet-stream")
-    response = send_file(
-        _disk_path(f["stored_name"]), mimetype=mimetype, conditional=True, max_age=86400
-    )
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    return response
+    return _image_response(_stored_path(f), mimetype)
+
+
+@bp.get("/files/<int:file_id>/thumb")
+@login_required
+def thumb(file_id):
+    """A small version of a photo, for cards and lists. Made on first use if missing."""
+    f = _get_file(file_id)
+    if f["kind"] != "image":
+        abort(404)
+    source = _stored_path(f)
+    dest = _disk_path(_thumb_name(f["stored_name"]))
+    if not os.path.exists(dest):
+        try:
+            _make_thumbnail(source, dest)
+        except Exception:
+            current_app.logger.warning("Could not make a thumbnail for file %s", file_id, exc_info=True)
+            return _image_response(source, IMAGE_MIMETYPES[extension(f["stored_name"])])
+    return _image_response(dest, "image/webp")
 
 
 @bp.get("/files/<int:file_id>/download")
@@ -237,7 +333,7 @@ def raw(file_id):
 def download(file_id):
     f = _get_file(file_id)
     return send_file(
-        _disk_path(f["stored_name"]),
+        _stored_path(f),
         mimetype="application/octet-stream",
         as_attachment=True,
         download_name=f["original_name"],
@@ -323,9 +419,78 @@ def update_file(file_id, action):
         _reorder(f, action)
     else:
         abort(404)
+    if f["kind"] == "model":
+        drop_stale_preview(f["item_id"])
     return redirect(
         safe_path(
             request.form.get("next"),
             url_for("inventory.edit_item", item_id=f["item_id"]),
         )
     )
+
+
+# --- static 3D preview of an item's first model ------------------------------
+# The picture is drawn by the browser (the same three.js code as the viewer) and
+# uploaded here, so the server needs no 3D rendering of its own.
+
+
+@bp.post("/items/<int:item_id>/preview")
+@login_required
+def save_preview(item_id):
+    db = get_db()
+    item = db.execute(
+        "SELECT id, preview_name FROM items WHERE id = ?", (item_id,)
+    ).fetchone()
+    if item is None:
+        abort(404)
+
+    first = db.execute(
+        "SELECT id FROM item_files WHERE item_id = ? AND kind = 'model'"
+        " ORDER BY sort_order, id LIMIT 1",
+        (item_id,),
+    ).fetchone()
+    try:
+        model_id = int(request.form.get("model_id", ""))
+    except ValueError:
+        model_id = None
+    if first is None or model_id != first["id"]:
+        return jsonify(error="The first model changed. Reload the page."), 409
+
+    upload = request.files.get("image")
+    data = upload.read(PREVIEW_MAX_BYTES + 1) if upload else b""
+    if not data or len(data) > PREVIEW_MAX_BYTES or not data.startswith(PNG_MAGIC):
+        return jsonify(error="That isn't a usable preview image."), 400
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            width, height = img.size
+            img.verify()
+    except Exception:
+        return jsonify(error="That isn't a usable preview image."), 400
+    if not (16 <= width <= PREVIEW_MAX_SIDE and 16 <= height <= PREVIEW_MAX_SIDE):
+        return jsonify(error="That isn't a usable preview image."), 400
+
+    name = f"preview-{uuid.uuid4().hex}.png"
+    with open(_disk_path(name), "wb") as fh:
+        fh.write(data)
+    db.execute(
+        "UPDATE items SET preview_name = ?, preview_file_id = ? WHERE id = ?",
+        (name, model_id, item_id),
+    )
+    db.commit()
+    if item["preview_name"]:
+        _unlink(item["preview_name"])
+    return jsonify(url=url_for("files.preview", item_id=item_id, v=model_id))
+
+
+@bp.get("/items/<int:item_id>/preview")
+@login_required
+def preview(item_id):
+    item = get_db().execute(
+        "SELECT preview_name FROM items WHERE id = ?", (item_id,)
+    ).fetchone()
+    if item is None or not item["preview_name"]:
+        abort(404)
+    path = _disk_path(item["preview_name"])
+    if not os.path.exists(path):
+        abort(404)
+    return _image_response(path, "image/png")

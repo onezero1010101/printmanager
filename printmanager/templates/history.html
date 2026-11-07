@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import action, thumb with context %}
+{% from "_macros.html" import action, mini_cover with context %}
 {% block title %}History{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -10,7 +10,7 @@
 <ul class="jobs">
   {% for job in jobs %}
   <li class="job">
-    {{ thumb(job.cover_id, job.item_name) }}
+    {{ mini_cover(job, job.item_name) }}
     <div class="job-main">
       <a class="job-title" href="{{ url_for('inventory.item_detail', item_id=job.item_id) }}">{{ job.quantity }} &times; {{ job.item_name }}</a>
       <div class="muted">Finished {{ job.completed_at|localtime }}{% if job.queued_by_name %} · queued by {{ job.queued_by_name }}{% endif %}{% if job.notes %} · {{ job.notes }}{% endif %}</div>

@@ -11,6 +11,10 @@ CREATE TABLE IF NOT EXISTS items (
     model_url TEXT NOT NULL DEFAULT '',
     path TEXT NOT NULL DEFAULT '',
     image_filename TEXT,
+    -- Static picture of the first 3D model, rendered in the browser. Only used
+    -- while preview_file_id is still the item's first model.
+    preview_name TEXT,
+    preview_file_id INTEGER,
     created_by INTEGER REFERENCES users(id),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

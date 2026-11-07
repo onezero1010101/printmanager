@@ -15,7 +15,7 @@
     </div>
     <div class="file-actions">
       {% if viewer %}
-      <button type="button" class="btn btn-small" data-view
+      <button type="button" class="btn btn-small" data-view data-id="{{ f.id }}"
               data-url="{{ url_for('files.raw', file_id=f.id) }}"
               data-ext="{{ f.stored_name.rsplit('.', 1)[-1] }}"
               data-name="{{ f.original_name }}"
@@ -41,7 +41,7 @@
 <ul class="files">
   {% for f in images %}
   <li class="file file-image">
-    <img src="{{ url_for('files.raw', file_id=f.id) }}" alt="{{ f.original_name }}" loading="lazy">
+    <img src="{{ url_for('files.thumb', file_id=f.id) }}" alt="{{ f.original_name }}" loading="lazy">
     <div class="file-main">
       <span class="file-name">{{ f.original_name }}</span>
       <span class="muted">{{ f.size|filesize }}{% if loop.first %} · cover{% endif %}</span>

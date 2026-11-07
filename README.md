@@ -6,7 +6,10 @@ A small web app for tracking 3D printing jobs. Keep an inventory of the things y
 - **Files:** attach any number of STL and 3MF files and photos to an item. Drag and drop onto the add or edit page (on the edit page files upload straight away and are added to the existing list). Every file can be downloaded under its original name, and an item's models can be downloaded together as a zip. The first photo is the cover shown on the inventory card, and you can reorder or change it
 - **3D viewer:** the item page previews STL and 3MF models in the browser (rotate, zoom, pan, with the size in mm). three.js is bundled in `printmanager/static/vendor`, so it works without internet access
 - **Local file path:** note where each item's STL files live on your PC (e.g. `C:\Models\Benchy` or `\\nas\prints\Benchy`), shown on the item page with a copy button. It's just a text note; the app never reads your files
-- **Folders:** the inventory is grouped into collapsible sections by folder: items that share the same path are grouped under that folder, and an item alone in its own folder is filed under its parent (so `C:\Models\Household\Hooks\Wall hook` goes under Household / Hooks). Folders shared by every item are trimmed from the headings, and a toggle switches to a flat list
+- **Folder tree:** a sidebar tree built from the local paths. Items that share the same path are filed under that folder, and an item alone at its path is filed under its parent (so `C:\Models\Household\Hooks\Wall hook` goes under Household / Hooks). Folders start collapsed and the app remembers which ones you opened; "Expand all" and "Collapse all" are there too. Clicking a folder shows everything inside it, sub-folders included. On a phone the tree folds up under a "Folders" heading. Folders shared by every item are trimmed from the top of the tree, and an orange dot marks folders containing items without a 3D model
+- **Cards or list:** switch between photo cards and a compact list. The choice is remembered
+- **Missing info:** filter chips for "No local path", "No 3D model" and "No photo", each with a count. They combine with each other, with a selected folder and with search. Cards and rows are also marked with what they lack. Search covers the name, notes and local path
+- **Thumbnails and previews:** photos are shown as small thumbnails (made automatically, including for photos uploaded before this version), so large phone pictures don't slow the page down. An item with a 3D model but no photo gets a picture of its first model instead. Your browser draws it and the app keeps it, so it appears on its own the first time the item or inventory page is opened, only for pictures near the screen, and is redrawn if the first model changes. A real photo always takes priority
 - **Queue:** add any item with a quantity and note, then move it Queued → Printing → Completed
 - **History:** completed prints, with "print again" to requeue
 - **Logins:** username/password for a couple of users sharing one inventory and queue (no public signup)
@@ -69,6 +72,7 @@ pytest
 - Uploads are STL, 3MF, PNG, JPG, GIF or WebP, checked by content as well as extension. Uploaded files live in the data folder next to the database, so include it in backups (it grows with your models).
 - Behind a reverse proxy, allow large request bodies (nginx: `client_max_body_size 200m;`), or uploads of big STL files will be refused.
 - Very detailed models (hundreds of thousands of triangles) can be slow to preview on a phone. Files over 30 MB aren't opened automatically; use "View in 3D".
-- The viewer needs WebGL. Without it you still get downloads.
+- The viewer and the 3D preview pictures need WebGL. Without it you still get downloads, and items without a photo show a plain placeholder. Models over 30 MB don't get an automatic preview picture.
+- The first folder-tree view of a large inventory is only as heavy as its thumbnails, which are loaded lazily as you scroll.
 - Photos from before this version were converted automatically on first start.
 - All times are stored in UTC and shown in `APP_TIMEZONE`.

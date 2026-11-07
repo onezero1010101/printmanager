@@ -31,8 +31,13 @@ def init_db():
     db.executescript(Path(__file__).with_name("schema.sql").read_text())
     # Migrations for databases created by older versions.
     columns = {row["name"] for row in db.execute("PRAGMA table_info(items)")}
-    if "path" not in columns:
-        db.execute("ALTER TABLE items ADD COLUMN path TEXT NOT NULL DEFAULT ''")
+    for name, definition in (
+        ("path", "TEXT NOT NULL DEFAULT ''"),
+        ("preview_name", "TEXT"),
+        ("preview_file_id", "INTEGER"),
+    ):
+        if name not in columns:
+            db.execute(f"ALTER TABLE items ADD COLUMN {name} {definition}")
 
     # Single photos (items.image_filename) became rows in item_files.
     old_photos = db.execute(

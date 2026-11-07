@@ -2,12 +2,14 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 
 from .auth import login_required, safe_path
 from .db import get_db, utcnow
-from .files import COVER_ID_SQL
+from .files import COVER_ID_SQL, FIRST_MODEL_ID_SQL
 
 bp = Blueprint("jobs", __name__)
 
 JOB_SELECT = f"""
 SELECT j.*, i.name AS item_name, {COVER_ID_SQL} AS cover_id,
+       {FIRST_MODEL_ID_SQL} AS first_model_id,
+       i.preview_name AS preview_name, i.preview_file_id AS preview_file_id,
        u.username AS queued_by_name
 FROM print_jobs j
 JOIN items i ON i.id = j.item_id
