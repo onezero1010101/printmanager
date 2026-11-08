@@ -9,7 +9,7 @@ bp = Blueprint("spools", __name__)
 
 SORTS = {
     "material": lambda r: (r["material"].lower(), r["name"].lower(), r["id"] or 0),
-    "remaining": lambda r: (r["remaining_g"] is None, r["remaining_g"] or 0, r["name"].lower()),
+    "remaining": lambda r: (r["remaining_g"] is None, -(r["remaining_g"] or 0), r["name"].lower()),
     "name": lambda r: (r["name"].lower(), r["material"].lower(), r["id"] or 0),
 }
 
@@ -17,9 +17,9 @@ SORTS = {
 @bp.get("/spools")
 @login_required
 def index():
-    sort = request.args.get("sort", "material")
+    sort = request.args.get("sort", "remaining")
     if sort not in SORTS:
-        sort = "material"
+        sort = "remaining"
     enabled = spoolman_enabled()
     rows, error = [], ""
     low = low_spool_grams()

@@ -6,7 +6,7 @@
   {% if rows %}
   <div class="actions">
     <span class="muted">Sort by</span>
-    {% for key, label in (('material', 'Material'), ('name', 'Colour'), ('remaining', 'Least left')) %}
+    {% for key, label in (('remaining', 'Most left'), ('material', 'Material'), ('name', 'Colour')) %}
     <a class="btn btn-small{{ ' btn-primary' if sort == key }}" href="{{ url_for('spools.index', sort=key) }}">{{ label }}</a>
     {% endfor %}
   </div>

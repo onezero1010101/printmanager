@@ -1,4 +1,5 @@
 import io
+import re
 
 from conftest import Session
 from fake_spoolman import spool
@@ -251,3 +252,10 @@ def test_colour_dropdown_has_no_vendor(auth, spoolman_server):
     item = make_item(auth)
     page = auth.get(f"/items/{item}").data.decode()
     assert "PLA · Black" in page and "Elegoo" not in page
+
+
+def test_spools_default_to_fullest_first_and_empty_last(auth, spoolman_server):
+    configure(auth, spoolman_server.url)
+    page = auth.get("/spools").data.decode()
+    grams = [int(g) for g in re.findall(r"(\d+) g of", page)]
+    assert grams == sorted(grams, reverse=True) and grams[0] == 740 and grams[-1] == 0
