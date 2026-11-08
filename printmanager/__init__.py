@@ -95,7 +95,7 @@ def create_app(test_config=None):
 
     @app.template_global()
     def filament_choices():
-        """(options, error, enabled) for colour dropdowns; fetched once per request."""
+        """(options, error, enabled) for color dropdowns; fetched once per request."""
         if "filament_choices" not in g:
             from . import spoolman
             from .settings import spoolman_enabled
@@ -109,7 +109,7 @@ def create_app(test_config=None):
 
     @app.template_filter("swatch_css")
     def swatch_css(value):
-        """CSS background for one or several hex colours (re-validated)."""
+        """CSS background for one or several hex colors (re-validated)."""
         from .spoolman import clean_colors
 
         colors = [c for c in clean_colors(value).split(",") if c]

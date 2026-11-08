@@ -1,4 +1,4 @@
-"""Read filament colours from a Spoolman instance.
+"""Read filament colors from a Spoolman instance.
 
 Only GET /api/v1/spool is used. Results are cached briefly, and a failure is
 cached too, so a Spoolman that is down doesn't slow every page.
@@ -25,13 +25,13 @@ def clear_cache():
 
 
 def clean_hex(value):
-    """A bare 6-digit hex colour (no #), lowercase, or ''."""
+    """A bare 6-digit hex color (no #), lowercase, or ''."""
     value = (value or "").strip().lstrip("#")
     return value.lower() if _HEX.match(value) else ""
 
 
 def clean_colors(value):
-    """Comma separated hex colours; invalid parts are dropped."""
+    """Comma separated hex colors; invalid parts are dropped."""
     parts = [clean_hex(p) for p in (value or "").split(",")]
     return ",".join(p for p in parts if p)
 
@@ -86,10 +86,10 @@ def locations(spools):
 
 
 def build_options(spools, location=""):
-    """Colour choices from usable spools.
+    """Color choices from usable spools.
 
     Spools are skipped when archived, empty, or in another location. Spools of
-    the same material, name and colour become one option, whose id is the
+    the same material, name and color become one option, whose id is the
     lowest filament id.
     """
     location = (location or "").strip().lower()

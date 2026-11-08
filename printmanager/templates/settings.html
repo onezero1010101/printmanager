@@ -6,14 +6,14 @@
 <form class="panel stack" method="post" action="{{ url_for('settings.index') }}">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <h2>Spoolman</h2>
-  <p class="muted">Filament colours for the print queue come from your Spoolman. Leave the address empty to turn colours off.</p>
+  <p class="muted">Filament colors for the print queue come from your Spoolman. Leave the address empty to turn colors off.</p>
 
   <label>Spoolman address
     <input type="url" name="spoolman_url" value="{{ url }}" maxlength="300" placeholder="http://192.168.1.20:7912">
   </label>
   {% if url %}
     {% if connected %}
-    <p class="status-ok">Connected. {{ option_count }} colour{{ '' if option_count == 1 else 's' }} available with the location setting below.</p>
+    <p class="status-ok">Connected. {{ option_count }} color{{ '' if option_count == 1 else 's' }} available with the location setting below.</p>
     {% else %}
     <p class="status-bad">{{ error }}</p>
     {% endif %}
@@ -26,7 +26,7 @@
       <input type="text" name="location" value="{{ location }}" maxlength="100" list="spool-locations" placeholder="e.g. Production">
     </label>
     <datalist id="spool-locations">{% for loc in locations %}<option value="{{ loc }}">{% endfor %}</datalist>
-    <p class="muted">Archived and empty spools are never offered. Spools with the same material, name and colour appear once.</p>
+    <p class="muted">Archived and empty spools are never offered. Spools with the same material, name and color appear once.</p>
   </fieldset>
 
   <label>Low-stock level (grams)

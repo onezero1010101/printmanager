@@ -79,7 +79,7 @@ def spoolman_server():
         spool(6, 8, "Empty", "PLA", "0000ff", remaining=0),     # empty: skipped
         spool(7, 9, "Shelf", "PLA", "ffffff", location="Shed"), # other location
         spool(8, 10, "Rainbow", "PLA", "", multi_color_hexes="ff0000,00ff00"),
-        spool(9, 11, "Weird", "PLA", "red;x"),                  # invalid hex: no colour
+        spool(9, 11, "Weird", "PLA", "red;x"),                  # invalid hex: no color
     ])
     yield server
     server.stop()

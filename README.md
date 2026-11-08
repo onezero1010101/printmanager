@@ -1,6 +1,6 @@
 # Print Manager
 
-A small web app for tracking 3D printing jobs. Keep an inventory of the things you print (with photos, notes and a link to the model), add them to a print queue, and mark them done when they come off the printer. Filament stock is intentionally out of scope; Spoolman handles that, and this app only reads colours from it.
+A small web app for tracking 3D printing jobs. Keep an inventory of the things you print (with photos, notes and a link to the model), add them to a print queue, and mark them done when they come off the printer. Filament stock is intentionally out of scope; Spoolman handles that, and this app only reads colors from it.
 
 - **Inventory:** name, description, optional model link, search
 - **Files:** attach any number of STL and 3MF files and photos to an item. Drag and drop onto the add or edit page, or drop a zip: every STL, 3MF and image inside is added (folders are flattened, other files are skipped) (on the edit page files upload straight away and are added to the existing list). Every file can be downloaded under its original name, and an item's models can be downloaded together as a zip. The first photo is the cover shown on the inventory card, and you can reorder or change it
@@ -11,9 +11,9 @@ A small web app for tracking 3D printing jobs. Keep an inventory of the things y
 - **Missing info:** filter chips for "No local path", "No 3D model" and "No photo", each with a count. They combine with each other, with a selected folder and with search. Cards and rows are also marked with what they lack. Search covers the name, notes and local path
 - **Thumbnails and previews:** photos are shown as small thumbnails (made automatically, including for photos uploaded before this version), so large phone pictures don't slow the page down. An item with a 3D model but no photo gets a picture of its first model instead. Your browser draws it and the app keeps it, so it appears on its own the first time the item or inventory page is opened, only for pictures near the screen, and is redrawn if the first model changes. A real photo always takes priority
 - **Queue:** add any item with a quantity and note, then move it Queued → Printing → Completed. An item with several STL/3MF files can be queued as a whole (one job) or one file at a time using the "Add to queue" button on each file; the queue shows which part a job is for and has a download button for it
-- **Filament colour (Spoolman):** when a Spoolman address is set, the queue forms have a colour and material dropdown with swatches, one colour per job, and a queued job's colour can be changed in the queue. Archived and empty spools are skipped, and spools of the same material, name and colour appear once. The colour is copied onto the job, so history stays correct when a spool is used up. If Spoolman is unreachable you can still queue without a colour
+- **Filament color (Spoolman):** when a Spoolman address is set, the queue forms have a color and material dropdown with swatches, one color per job, and a queued job's color can be changed in the queue. Archived and empty spools are skipped, and spools of the same material, name and color appear once. The color is copied onto the job, so history stays correct when a spool is used up. If Spoolman is unreachable you can still queue without a color
 - **Partial completion:** a job for several copies shows "2 of 5 done" with a progress bar. Enter how many came off the printer and press "Mark done" (there's an Undo, and "Finish all" for the rest). The job moves to History when the last one is done, and the "printed" chips on inventory cards count finished copies straight away
-- **Spools page:** shows the active (non-archived) spools from Spoolman with vendor, colour, grams and metres left and a bar, sortable by material, colour or least left. It follows the location setting. Spools under the low-stock level (default 100 g) are marked "low"
+- **Spools page:** shows the active (non-archived) spools from Spoolman with vendor, color, grams and metres left and a bar, sortable by material, color or least left. It follows the location setting. Spools under the low-stock level (default 100 g) are marked "low"
 - **Settings:** the Settings page holds the Spoolman address and an optional spool location filter (e.g. only spools in `Tim`, or any location) and the low-stock level in grams. Values saved there override the environment variables
 - **History:** completed prints, with "print again" to requeue
 - **Logins:** username/password for a couple of users sharing one inventory and queue (no public signup)
@@ -61,7 +61,7 @@ docker compose exec printmanager flask --app printmanager set-password alice
 | `APP_TIMEZONE` | Timezone for displayed times | `America/New_York` |
 | `DATABASE` | SQLite file path | `instance/printmanager.db` |
 | `UPLOAD_FOLDER` | Where uploaded files are stored | `instance/uploads` |
-| `SPOOLMAN_URL` | Spoolman address, e.g. `http://192.168.1.20:7912` (empty = no colour dropdown) | none |
+| `SPOOLMAN_URL` | Spoolman address, e.g. `http://192.168.1.20:7912` (empty = no color dropdown) | none |
 | `SPOOLMAN_LOCATION` | Only offer spools in this Spoolman location (empty = any) | none |
 | `LOW_SPOOL_GRAMS` | Spools with less than this many grams left are marked low | `100` |
 | `ZIP_MAX_UNCOMPRESSED_MB` | Most data a single zip upload may unpack to | `1000` |

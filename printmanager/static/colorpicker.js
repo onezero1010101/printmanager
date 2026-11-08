@@ -1,4 +1,4 @@
-// Turns <select class="color-select"> into a dropdown that shows colour swatches.
+// Turns <select class="color-select"> into a dropdown that shows color swatches.
 // The native select stays in the page (hidden) and holds the value, so forms and
 // no-JavaScript use keep working.
 (function () {

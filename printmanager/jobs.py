@@ -87,7 +87,7 @@ def add_to_queue(item_id):
     if option_id:
         option, error = spoolman.resolve(option_id)
         if option is None:
-            flash(f"{error} Nothing was added; pick a colour again.", "error")
+            flash(f"{error} Nothing was added; pick a color again.", "error")
             return redirect(back)
         filament = option
 
@@ -161,7 +161,7 @@ def set_color(job_id):
     if option_id:
         option, error = spoolman.resolve(option_id)
         if option is None:
-            flash(f"{error} The colour wasn't changed.", "error")
+            flash(f"{error} The color wasn't changed.", "error")
             return redirect(safe_path(request.form.get("next"), url_for("jobs.queue")))
         filament = option
     db.execute(
@@ -170,7 +170,7 @@ def set_color(job_id):
         (filament["name"], filament["material"], filament["color"], job_id),
     )
     db.commit()
-    flash("Colour updated.", "success")
+    flash("Color updated.", "success")
     return redirect(safe_path(request.form.get("next"), url_for("jobs.queue")))
 
 

@@ -55,7 +55,7 @@ def test_location_filter_is_case_insensitive_and_empty_means_any():
     assert spoolman.build_options(spools, "nowhere") == []
 
 
-def test_colour_cleaning_and_multicolour():
+def test_color_cleaning_and_multicolor():
     assert spoolman.clean_hex("#FF00aa") == "ff00aa"
     assert spoolman.clean_hex("red;x") == ""
     assert spoolman.clean_colors("ff0000, bad ,00ff00") == "ff0000,00ff00"
@@ -111,7 +111,7 @@ def test_saved_any_location_beats_environment_default(tmp_path, spoolman_server)
 
 # --- queueing ----------------------------------------------------------------
 
-def test_queue_whole_item_with_colour_snapshot(auth, app, spoolman_server):
+def test_queue_whole_item_with_color_snapshot(auth, app, spoolman_server):
     configure(auth, spoolman_server.url, "Tim")
     item = make_item(auth)
     page = auth.get(f"/items/{item}").data
@@ -145,7 +145,7 @@ def test_file_must_be_a_model_of_this_item(auth, app):
     assert jobs(app) == []
 
 
-def test_unknown_or_unreachable_colour_adds_nothing(auth, app, spoolman_server):
+def test_unknown_or_unreachable_color_adds_nothing(auth, app, spoolman_server):
     configure(auth, spoolman_server.url, "Tim")
     item = make_item(auth)
     auth.post(f"/items/{item}/queue", data={"quantity": "1", "filament": "9"})  # other location
@@ -156,7 +156,7 @@ def test_unknown_or_unreachable_colour_adds_nothing(auth, app, spoolman_server):
     assert jobs(app) == []
     page = auth.get(f"/items/{item}").data
     assert b"reach Spoolman" in page
-    auth.post(f"/items/{item}/queue", data={"quantity": "1"})  # no colour still works
+    auth.post(f"/items/{item}/queue", data={"quantity": "1"})  # no color still works
     assert len(jobs(app)) == 1
 
 
@@ -165,7 +165,7 @@ def test_without_spoolman_no_dropdown(auth):
     assert b'name="filament"' not in auth.get(f"/items/{item}").data
 
 
-def test_change_colour_of_queued_job(auth, app, spoolman_server):
+def test_change_color_of_queued_job(auth, app, spoolman_server):
     configure(auth, spoolman_server.url)
     item = make_item(auth)
     auth.post(f"/items/{item}/queue", data={"quantity": "1"})
@@ -247,7 +247,7 @@ def test_length_falls_back_to_weight_calculation():
     assert 330 < rows[0]["remaining_m"] < 340   # about 335 m per kg of PLA
 
 
-def test_colour_dropdown_has_no_vendor(auth, spoolman_server):
+def test_color_dropdown_has_no_vendor(auth, spoolman_server):
     configure(auth, spoolman_server.url)
     item = make_item(auth)
     page = auth.get(f"/items/{item}").data.decode()

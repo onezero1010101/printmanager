@@ -130,9 +130,9 @@
 {% endmacro %}
 
 
-{# ---- filament colours (from Spoolman) ----------------------------------- #}
+{# ---- filament colors (from Spoolman) ----------------------------------- #}
 
-{# Small colour dot plus "PLA · Black" for a job; nothing if no colour was chosen. #}
+{# Small color dot plus "PLA · Black" for a job; nothing if no color was chosen. #}
 {% macro filament_chip(job) -%}
 {%- if job.filament_name or job.filament_material or job.filament_color -%}
 <span class="filament-chip">
@@ -142,35 +142,35 @@
 {%- endif -%}
 {%- endmacro %}
 
-{# Colour <select>. colorpicker.js turns it into a dropdown with swatches; without
+{# Color <select>. colorpicker.js turns it into a dropdown with swatches; without
    JavaScript it stays a plain select. Renders nothing if Spoolman isn't set up. #}
 {% macro filament_select(label="Filament", autosubmit=False) %}
 {% set options, error, enabled = filament_choices() %}
 {% if enabled %}
 <label class="filament-field">{{ label }}
   <select name="filament" class="color-select"{% if autosubmit %} data-autosubmit{% endif %}>
-    <option value="">No colour chosen</option>
+    <option value="">No color chosen</option>
     {% for o in options %}
     <option value="{{ o.id }}" data-color="{{ o.color }}">{{ [o.material, o.name]|select|join(' · ') }}</option>
     {% endfor %}
   </select>
 </label>
-{% if error %}<p class="muted filament-note">{{ error }} You can still add it without a colour.</p>
+{% if error %}<p class="muted filament-note">{{ error }} You can still add it without a color.</p>
 {% elif not options %}<p class="muted filament-note">No spools available. Check the Settings page.</p>{% endif %}
 {% endif %}
 {% endmacro %}
 
-{# Change the colour of a queued job. #}
+{# Change the color of a queued job. #}
 {% macro color_form(job) %}
 {% set options, error, enabled = filament_choices() %}
 {% if enabled and options %}
 <form class="inline color-form" method="post" action="{{ url_for('jobs.set_color', job_id=job.id) }}">
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
-  <select name="filament" class="color-select" data-autosubmit aria-label="Colour for {{ job.item_name }}">
+  <select name="filament" class="color-select" data-autosubmit aria-label="Color for {{ job.item_name }}">
     {% set ns = namespace(found=false) %}
     {% for o in options %}{% if o.name == job.filament_name and o.material == job.filament_material and o.color == job.filament_color %}{% set ns.found = true %}{% endif %}{% endfor %}
-    <option value=""{{ ' selected' if not ns.found and not job.filament_name and not job.filament_color }}>No colour chosen</option>
+    <option value=""{{ ' selected' if not ns.found and not job.filament_name and not job.filament_color }}>No color chosen</option>
     {% if not ns.found and (job.filament_name or job.filament_color) %}
     <option value="" data-color="{{ job.filament_color }}" selected disabled>{{ [job.filament_material, job.filament_name]|select|join(' · ') }} (not in stock)</option>
     {% endif %}
