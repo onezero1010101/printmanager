@@ -257,5 +257,5 @@ def test_colour_dropdown_has_no_vendor(auth, spoolman_server):
 def test_spools_default_to_fullest_first_and_empty_last(auth, spoolman_server):
     configure(auth, spoolman_server.url)
     page = auth.get("/spools").data.decode()
-    grams = [int(g) for g in re.findall(r"(\d+) g of", page)]
+    grams = [int(g) for g in re.findall(r"(\d+) g(?: of \d+ g)? left", page)]
     assert grams == sorted(grams, reverse=True) and grams[0] == 740 and grams[-1] == 0
