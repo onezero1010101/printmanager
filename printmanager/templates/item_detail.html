@@ -97,7 +97,7 @@
     <tbody>
       {% for job in jobs %}
       <tr>
-        <td>{{ job.quantity }}</td>
+        <td>{{ job.quantity }}{% if job.quantity > 1 and job.status != 'completed' %}<br><span class="muted">{{ job.done_qty }} done</span>{% endif %}</td>
         <td>{{ job.file_name or 'Whole item' }}</td>
         <td>{{ filament_chip(job) }}</td>
         <td><span class="chip chip-{{ job.status }}">{{ job.status }}</span></td>

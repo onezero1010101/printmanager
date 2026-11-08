@@ -40,7 +40,9 @@ CREATE TABLE IF NOT EXISTS print_jobs (
     -- hex value, or several separated by commas for multi-color filament.
     filament_name TEXT NOT NULL DEFAULT '',
     filament_material TEXT NOT NULL DEFAULT '',
-    filament_color TEXT NOT NULL DEFAULT ''
+    filament_color TEXT NOT NULL DEFAULT '',
+    -- How many of quantity are finished. Equals quantity once the job is completed.
+    done_qty INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON print_jobs(status);

@@ -40,6 +40,9 @@ def create_app(test_config=None):
         # Defaults for the Spoolman integration; the Settings page overrides them.
         SPOOLMAN_URL=os.environ.get("SPOOLMAN_URL", ""),
         SPOOLMAN_LOCATION=os.environ.get("SPOOLMAN_LOCATION", ""),
+        # Spools with less than this many grams left are marked "low".
+        LOW_SPOOL_GRAMS=os.environ.get("LOW_SPOOL_GRAMS", "100"),
+        ZIP_MAX_UNCOMPRESSED_MB=int(os.environ.get("ZIP_MAX_UNCOMPRESSED_MB", "1000")),
     )
     if test_config:
         app.config.update(test_config)
@@ -49,7 +52,7 @@ def create_app(test_config=None):
         ) or _load_or_create_secret(app.instance_path)
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-    from . import auth, db, files, inventory, jobs, settings
+    from . import auth, db, files, inventory, jobs, settings, spools
 
     db.init_app(app)
     app.register_blueprint(auth.bp)
@@ -57,6 +60,7 @@ def create_app(test_config=None):
     app.register_blueprint(inventory.bp)
     app.register_blueprint(jobs.bp)
     app.register_blueprint(settings.bp)
+    app.register_blueprint(spools.bp)
 
     @app.before_request
     def csrf_protect():

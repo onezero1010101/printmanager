@@ -3,7 +3,7 @@
 A small web app for tracking 3D printing jobs. Keep an inventory of the things you print (with photos, notes and a link to the model), add them to a print queue, and mark them done when they come off the printer. Filament stock is intentionally out of scope; Spoolman handles that, and this app only reads colours from it.
 
 - **Inventory:** name, description, optional model link, search
-- **Files:** attach any number of STL and 3MF files and photos to an item. Drag and drop onto the add or edit page (on the edit page files upload straight away and are added to the existing list). Every file can be downloaded under its original name, and an item's models can be downloaded together as a zip. The first photo is the cover shown on the inventory card, and you can reorder or change it
+- **Files:** attach any number of STL and 3MF files and photos to an item. Drag and drop onto the add or edit page, or drop a zip: every STL, 3MF and image inside is added (folders are flattened, other files are skipped) (on the edit page files upload straight away and are added to the existing list). Every file can be downloaded under its original name, and an item's models can be downloaded together as a zip. The first photo is the cover shown on the inventory card, and you can reorder or change it
 - **3D viewer:** the item page previews STL and 3MF models in the browser (rotate, zoom, pan, with the size in mm). three.js is bundled in `printmanager/static/vendor`, so it works without internet access
 - **Local file path:** note where each item's STL files live on your PC (e.g. `C:\Models\Benchy` or `\\nas\prints\Benchy`), shown on the item page with a copy button. It's just a text note; the app never reads your files
 - **Folder tree:** a sidebar tree built from the local paths. Items that share the same path are filed under that folder, and an item alone at its path is filed under its parent (so `C:\Models\Household\Hooks\Wall hook` goes under Household / Hooks). Folders start collapsed and the app remembers which ones you opened; "Expand all" and "Collapse all" are there too. Clicking a folder shows everything inside it, sub-folders included. On a phone the tree folds up under a "Folders" heading. Folders shared by every item are trimmed from the top of the tree, and an orange dot marks folders containing items without a 3D model
@@ -12,7 +12,9 @@ A small web app for tracking 3D printing jobs. Keep an inventory of the things y
 - **Thumbnails and previews:** photos are shown as small thumbnails (made automatically, including for photos uploaded before this version), so large phone pictures don't slow the page down. An item with a 3D model but no photo gets a picture of its first model instead. Your browser draws it and the app keeps it, so it appears on its own the first time the item or inventory page is opened, only for pictures near the screen, and is redrawn if the first model changes. A real photo always takes priority
 - **Queue:** add any item with a quantity and note, then move it Queued → Printing → Completed. An item with several STL/3MF files can be queued as a whole (one job) or one file at a time using the "Add to queue" button on each file; the queue shows which part a job is for and has a download button for it
 - **Filament colour (Spoolman):** when a Spoolman address is set, the queue forms have a colour and material dropdown with swatches, one colour per job, and a queued job's colour can be changed in the queue. Archived and empty spools are skipped, and spools of the same material, name and colour appear once. The colour is copied onto the job, so history stays correct when a spool is used up. If Spoolman is unreachable you can still queue without a colour
-- **Settings:** the Settings page holds the Spoolman address and an optional spool location filter (e.g. only spools in `Tim`, or any location). Values saved there override the environment variables
+- **Partial completion:** a job for several copies shows "2 of 5 done" with a progress bar. Enter how many came off the printer and press "Mark done" (there's an Undo, and "Finish all" for the rest). The job moves to History when the last one is done, and the "printed" chips on inventory cards count finished copies straight away
+- **Spools page:** shows the active (non-archived) spools from Spoolman with vendor, colour, grams and metres left and a bar, sortable by material, colour or least left. It follows the location setting. Spools under the low-stock level (default 100 g) are marked "low"
+- **Settings:** the Settings page holds the Spoolman address and an optional spool location filter (e.g. only spools in `Tim`, or any location) and the low-stock level in grams. Values saved there override the environment variables
 - **History:** completed prints, with "print again" to requeue
 - **Logins:** username/password for a couple of users sharing one inventory and queue (no public signup)
 
@@ -61,6 +63,8 @@ docker compose exec printmanager flask --app printmanager set-password alice
 | `UPLOAD_FOLDER` | Where uploaded files are stored | `instance/uploads` |
 | `SPOOLMAN_URL` | Spoolman address, e.g. `http://192.168.1.20:7912` (empty = no colour dropdown) | none |
 | `SPOOLMAN_LOCATION` | Only offer spools in this Spoolman location (empty = any) | none |
+| `LOW_SPOOL_GRAMS` | Spools with less than this many grams left are marked low | `100` |
+| `ZIP_MAX_UNCOMPRESSED_MB` | Most data a single zip upload may unpack to | `1000` |
 | `MAX_UPLOAD_MB` | Largest upload (one save or one dropped file), in MB | `200` |
 
 ## Tests
@@ -73,7 +77,7 @@ pytest
 ## Notes
 
 - There's no login rate limiting. It's meant for a home network; if you expose it to the internet, put it behind HTTPS and a reverse proxy (and consider extra protection such as a VPN).
-- Uploads are STL, 3MF, PNG, JPG, GIF or WebP, checked by content as well as extension. Uploaded files live in the data folder next to the database, so include it in backups (it grows with your models).
+- Uploads are STL, 3MF, PNG, JPG, GIF, WebP or ZIP (zips are unpacked and each file inside is checked), checked by content as well as extension. Uploaded files live in the data folder next to the database, so include it in backups (it grows with your models).
 - Behind a reverse proxy, allow large request bodies (nginx: `client_max_body_size 200m;`), or uploads of big STL files will be refused.
 - Very detailed models (hundreds of thousands of triangles) can be slow to preview on a phone. Files over 30 MB aren't opened automatically; use "View in 3D".
 - The viewer and the 3D preview pictures need WebGL. Without it you still get downloads, and items without a photo show a plain placeholder. Models over 30 MB don't get an automatic preview picture.

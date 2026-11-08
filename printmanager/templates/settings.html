@@ -29,6 +29,11 @@
     <p class="muted">Archived and empty spools are never offered. Spools with the same material, name and colour appear once.</p>
   </fieldset>
 
+  <label>Low-stock level (grams)
+    <input type="number" name="low_spool_grams" value="{{ low_grams }}" min="0" max="100000" step="1">
+  </label>
+  <p class="muted">Spools with less than this left are marked "low" on the Spools page.</p>
+
   <div class="actions">
     <button class="btn btn-primary" type="submit">Save</button>
     <button class="btn" type="submit" name="reset" value="1" formnovalidate

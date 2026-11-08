@@ -18,7 +18,7 @@
   var fallbackButton = zone.querySelector('.drop-submit');
   if (fallbackButton) fallbackButton.hidden = true;
 
-  var ALLOWED = /\.(stl|3mf|png|jpe?g|gif|webp)$/i;
+  var ALLOWED = /\.(stl|3mf|png|jpe?g|gif|webp|zip)$/i;
   var pending = new DataTransfer(); // attach mode: files waiting for Save
   var queue = [];                   // upload mode: files waiting to upload
   var busy = false;
@@ -71,7 +71,7 @@
       (ALLOWED.test(file.name) ? accepted : skipped).push(file);
     });
     if (skipped.length) {
-      note('Skipped (only STL, 3MF and PNG/JPG/GIF/WebP files): ' +
+      note('Skipped (only STL, 3MF, ZIP and PNG/JPG/GIF/WebP files): ' +
            skipped.map(function (f) { return f.name; }).join(', '), 'drop-error');
     }
     if (mode === 'attach') {

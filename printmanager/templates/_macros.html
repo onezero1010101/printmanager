@@ -151,7 +151,7 @@
   <select name="filament" class="color-select"{% if autosubmit %} data-autosubmit{% endif %}>
     <option value="">No colour chosen</option>
     {% for o in options %}
-    <option value="{{ o.id }}" data-color="{{ o.color }}">{{ [o.material, o.name]|select|join(' · ') }}{% if o.vendor %} ({{ o.vendor }}){% endif %}</option>
+    <option value="{{ o.id }}" data-color="{{ o.color }}">{{ [o.material, o.name]|select|join(' · ') }}</option>
     {% endfor %}
   </select>
 </label>
@@ -179,6 +179,30 @@
     {% endfor %}
   </select>
   <noscript><button class="btn btn-small" type="submit">Set</button></noscript>
+</form>
+{% endif %}
+{% endmacro %}
+
+
+{# Progress for a job with more than one copy: "2 of 5 done" and a bar. #}
+{% macro progress(job) %}
+{% if job.quantity > 1 %}
+<div class="progress-line">
+  <div class="bar" role="img" aria-label="{{ job.done_qty }} of {{ job.quantity }} done"><span style="width: {{ (job.done_qty * 100 / job.quantity)|round|int }}%"></span></div>
+  <span class="muted">{{ job.done_qty }} of {{ job.quantity }} done</span>
+</div>
+{% endif %}
+{% endmacro %}
+
+{# "Mark [n] done" for jobs with several copies, with undo. #}
+{% macro progress_form(job) %}
+{% if job.quantity > 1 and job.status != 'completed' %}
+<form class="inline progress-form" method="post" action="{{ url_for('jobs.set_progress', job_id=job.id) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+  <input type="number" name="count" value="1" min="1" max="{{ job.quantity - job.done_qty }}" aria-label="How many are done">
+  <button class="btn" type="submit" name="direction" value="add">Mark done</button>
+  {% if job.done_qty %}<button class="btn btn-ghost" type="submit" name="direction" value="undo" title="Take this many back off the done count">Undo</button>{% endif %}
 </form>
 {% endif %}
 {% endmacro %}

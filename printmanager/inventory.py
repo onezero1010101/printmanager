@@ -37,9 +37,9 @@ SELECT i.*,
        {FIRST_MODEL_ID_SQL} AS first_model_id,
        (SELECT COUNT(*) FROM item_files f WHERE f.item_id = i.id AND f.kind = 'image') AS image_count,
        (SELECT COUNT(*) FROM item_files f WHERE f.item_id = i.id AND f.kind = 'model') AS model_count,
-       COALESCE(SUM(CASE WHEN j.status = 'queued' THEN j.quantity END), 0) AS queued_qty,
-       COALESCE(SUM(CASE WHEN j.status = 'printing' THEN j.quantity END), 0) AS printing_qty,
-       COALESCE(SUM(CASE WHEN j.status = 'completed' THEN j.quantity END), 0) AS completed_qty
+       COALESCE(SUM(CASE WHEN j.status = 'queued' THEN j.quantity - j.done_qty END), 0) AS queued_qty,
+       COALESCE(SUM(CASE WHEN j.status = 'printing' THEN j.quantity - j.done_qty END), 0) AS printing_qty,
+       COALESCE(SUM(j.done_qty), 0) AS completed_qty
 FROM items i
 LEFT JOIN print_jobs j ON j.item_id = i.id
 GROUP BY i.id

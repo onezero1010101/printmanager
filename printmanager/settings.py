@@ -6,7 +6,7 @@ from .db import get_db
 
 bp = Blueprint("settings", __name__)
 
-KEYS = ("SPOOLMAN_URL", "SPOOLMAN_LOCATION")
+KEYS = ("SPOOLMAN_URL", "SPOOLMAN_LOCATION", "LOW_SPOOL_GRAMS")
 
 
 def get_setting(key):
@@ -14,6 +14,14 @@ def get_setting(key):
     if row is not None:
         return row["value"]
     return current_app.config.get(key, "") or ""
+
+
+def low_spool_grams():
+    """The "low" threshold in grams (falls back to 100 if the value is unusable)."""
+    try:
+        return max(0, min(int(float(get_setting("LOW_SPOOL_GRAMS"))), 100000))
+    except (TypeError, ValueError):
+        return 100
 
 
 def spoolman_enabled():
@@ -28,7 +36,7 @@ def index():
     db = get_db()
     if request.method == "POST":
         if request.form.get("reset"):
-            db.execute("DELETE FROM settings WHERE key IN (?, ?)", KEYS)
+            db.execute("DELETE FROM settings WHERE key IN (?, ?, ?)", KEYS)
             flash("Settings reset to the environment defaults.")
         else:
             url = request.form.get("spoolman_url", "").strip()[:300]
@@ -40,7 +48,19 @@ def index():
                 location = ""
             else:
                 location = request.form.get("location", "").strip()[:100]
-            for key, value in (("SPOOLMAN_URL", url), ("SPOOLMAN_LOCATION", location)):
+            raw_low = request.form.get("low_spool_grams", "").strip()
+            try:
+                low = int(raw_low) if raw_low else low_spool_grams()
+                if not 0 <= low <= 100000:
+                    raise ValueError
+            except ValueError:
+                flash("The low-stock level must be a whole number of grams from 0 to 100000.")
+                return redirect(url_for("settings.index"))
+            for key, value in (
+                ("SPOOLMAN_URL", url),
+                ("SPOOLMAN_LOCATION", location),
+                ("LOW_SPOOL_GRAMS", str(low)),
+            ):
                 db.execute(
                     "INSERT INTO settings (key, value) VALUES (?, ?)"
                     " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -63,4 +83,5 @@ def index():
         connected=spools is not None,
         locations=spoolman.locations(spools),
         option_count=len(options),
+        low_grams=low_spool_grams(),
     )

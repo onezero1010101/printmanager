@@ -105,6 +105,50 @@ def add_to_queue(item_id):
     return redirect(back)
 
 
+@bp.post("/jobs/<int:job_id>/progress")
+@login_required
+def set_progress(job_id):
+    """Mark some of a job's quantity done ("add"), or take some back ("undo")."""
+    db = get_db()
+    job = db.execute(JOB_SELECT + " WHERE j.id = ?", (job_id,)).fetchone()
+    if job is None:
+        abort(404)
+    back = safe_path(request.form.get("next"), url_for("jobs.queue"))
+    try:
+        count = int(request.form.get("count", "1"))
+    except ValueError:
+        count = 0
+    if job["status"] == "completed" or count < 1:
+        flash("Enter a whole number of 1 or more.", "error")
+        return redirect(back)
+
+    if request.form.get("direction") == "undo":
+        done = max(0, job["done_qty"] - count)
+        db.execute("UPDATE print_jobs SET done_qty = ? WHERE id = ?", (done, job_id))
+        db.commit()
+        flash(f"{job['item_name']}: {done} of {job['quantity']} done.", "success")
+        return redirect(back)
+
+    left = job["quantity"] - job["done_qty"]
+    if count > left:
+        flash(f"Only {left} left to print on that job.", "error")
+        return redirect(back)
+    done = job["done_qty"] + count
+    if done == job["quantity"]:
+        now = utcnow()
+        db.execute(
+            "UPDATE print_jobs SET done_qty = ?, status = 'completed', completed_at = ?,"
+            " started_at = ? WHERE id = ?",
+            (done, now, job["started_at"] or now, job_id),
+        )
+        flash(f"{job['item_name']}: all {done} done.", "success")
+    else:
+        db.execute("UPDATE print_jobs SET done_qty = ? WHERE id = ?", (done, job_id))
+        flash(f"{job['item_name']}: {done} of {job['quantity']} done.", "success")
+    db.commit()
+    return redirect(back)
+
+
 @bp.post("/jobs/<int:job_id>/color")
 @login_required
 def set_color(job_id):
@@ -148,16 +192,20 @@ def update_job(job_id, action):
             flash("That job can't be moved there from its current status.", "error")
         else:
             now = utcnow()
+            done = job["done_qty"]
             if action == "start":
                 started, completed = now, None
             elif action == "complete":
                 started, completed = job["started_at"] or now, now
+                done = job["quantity"]
             else:
                 started, completed = None, None
+                if job["status"] == "completed":  # "print again" starts a fresh run
+                    done = 0
             db.execute(
-                "UPDATE print_jobs SET status = ?, started_at = ?, completed_at = ?"
-                " WHERE id = ?",
-                (new_status, started, completed, job_id),
+                "UPDATE print_jobs SET status = ?, started_at = ?, completed_at = ?,"
+                " done_qty = ? WHERE id = ?",
+                (new_status, started, completed, done, job_id),
             )
             db.commit()
             flash(f"{job['item_name']}: now {new_status}.", "success")

@@ -50,6 +50,11 @@ def init_db():
         if name not in job_columns:
             db.execute(f"ALTER TABLE print_jobs ADD COLUMN {name} {definition}")
 
+    if "done_qty" not in job_columns:
+        db.execute("ALTER TABLE print_jobs ADD COLUMN done_qty INTEGER NOT NULL DEFAULT 0")
+        # Jobs finished before this existed were finished in full.
+        db.execute("UPDATE print_jobs SET done_qty = quantity WHERE status = 'completed'")
+
     # Single photos (items.image_filename) became rows in item_files.
     old_photos = db.execute(
         "SELECT id, image_filename FROM items WHERE image_filename IS NOT NULL"

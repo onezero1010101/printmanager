@@ -142,3 +142,45 @@ def resolve(option_id):
         if str(opt["id"]) == str(option_id):
             return opt, ""
     return None, "That filament isn't available any more."
+
+
+def _number(value):
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def build_spool_rows(spools, location="", low_grams=100):
+    """One row per non-archived spool for the Spools page."""
+    location = (location or "").strip().lower()
+    rows = []
+    for spool in spools or []:
+        filament = spool.get("filament")
+        if not isinstance(filament, dict) or spool.get("archived"):
+            continue
+        if location and (spool.get("location") or "").strip().lower() != location:
+            continue
+        vendor = filament.get("vendor")
+        remaining = _number(spool.get("remaining_weight"))
+        initial = _number(spool.get("initial_weight")) or _number(filament.get("weight"))
+        length_mm = _number(spool.get("remaining_length"))
+        density, diameter = _number(filament.get("density")), _number(filament.get("diameter"))
+        if length_mm is None and remaining is not None and density and diameter:
+            # grams / (g per cm3) = cm3 = 1000 mm3; divided by the filament's cross-section
+            length_mm = remaining / density * 1000 / (3.14159265 * (diameter / 2) ** 2)
+        percent = None
+        if remaining is not None and initial:
+            percent = max(0, min(100, round(remaining / initial * 100)))
+        rows.append({
+            "id": spool.get("id"),
+            "vendor": vendor.get("name", "") if isinstance(vendor, dict) else "",
+            "name": str(filament.get("name") or "").strip(),
+            "material": str(filament.get("material") or "").strip(),
+            "color": _filament_colors(filament),
+            "location": (spool.get("location") or "").strip(),
+            "remaining_g": remaining,
+            "initial_g": initial,
+            "remaining_m": None if length_mm is None else length_mm / 1000,
+            "percent": percent,
+            "empty": remaining is not None and remaining <= 0,
+            "low": remaining is not None and 0 < remaining < low_grams,
+        })
+    return rows

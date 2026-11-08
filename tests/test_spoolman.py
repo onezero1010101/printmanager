@@ -206,3 +206,48 @@ def test_old_database_is_migrated(tmp_path):
     with app.app_context():
         row = get_db().execute("SELECT * FROM print_jobs").fetchone()
         assert row["filament_name"] == "" and row["file_id"] is None
+
+
+# --- spools page and low-stock level -------------------------------------------
+
+def test_spools_page_lists_non_archived_with_vendor_and_low(auth, spoolman_server):
+    spoolman_server.spools.append(spool(10, 20, "Nearly", "PLA", "123456", remaining=40, vendor="Acme"))
+    configure(auth, spoolman_server.url, "Tim")
+    page = auth.get("/spools").data.decode()
+    assert "Elegoo" in page and "Acme" in page          # vendor is shown here
+    assert "Old" not in page                            # archived
+    assert "Shelf" not in page                          # other location
+    assert "low</span>" in page and "empty</span>" in page
+    assert "740 g of" in page.replace("&nbsp;", " ") or "741 g" in page or "740" in page
+    for sort in ("material", "name", "remaining", "bogus"):
+        assert auth.get(f"/spools?sort={sort}").status_code == 200
+
+
+def test_spools_page_states(auth, spoolman_server):
+    assert b"set up" in auth.get("/spools").data
+    configure(auth, "http://127.0.0.1:9")
+    assert b"reach Spoolman" in auth.get("/spools").data
+
+
+def test_low_threshold_setting(auth, spoolman_server):
+    configure(auth, spoolman_server.url)
+    assert b"low</span>" not in auth.get("/spools").data
+    auth.post("/settings", data={"spoolman_url": spoolman_server.url, "location_mode": "any",
+                                 "low_spool_grams": "800"})
+    assert b"low</span>" in auth.get("/spools").data
+    resp = auth.post("/settings", data={"spoolman_url": spoolman_server.url, "low_spool_grams": "-5"})
+    assert resp.status_code == 302
+    assert b'value="800"' in auth.get("/settings").data
+
+
+def test_length_falls_back_to_weight_calculation():
+    rows = spoolman.build_spool_rows([spool(1, 1, "A", "PLA", "111111", remaining=1000,
+                                           density=1.24, diameter=1.75)])
+    assert 330 < rows[0]["remaining_m"] < 340   # about 335 m per kg of PLA
+
+
+def test_colour_dropdown_has_no_vendor(auth, spoolman_server):
+    configure(auth, spoolman_server.url)
+    item = make_item(auth)
+    page = auth.get(f"/items/{item}").data.decode()
+    assert "PLA · Black" in page and "Elegoo" not in page

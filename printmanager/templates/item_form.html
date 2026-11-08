@@ -22,8 +22,8 @@
 
     {% if not item %}
     <div id="dropzone" class="dropzone" data-mode="attach">
-      <p><strong>Drop STL, 3MF or photo files anywhere on this page</strong>, or choose them:</p>
-      <input type="file" id="file-input" name="files" multiple accept=".stl,.3mf,.png,.jpg,.jpeg,.gif,.webp">
+      <p><strong>Drop STL, 3MF, photo or zip files anywhere on this page</strong>, or choose them:</p>
+      <input type="file" id="file-input" name="files" multiple accept=".stl,.3mf,.png,.jpg,.jpeg,.gif,.webp,.zip">
       <ul class="drop-list"></ul>
       <p class="muted">Files are added when you save (up to {{ (config.MAX_CONTENT_LENGTH / 1048576)|int }} MB in total).</p>
     </div>
@@ -44,8 +44,8 @@
         method="post" action="{{ url_for('files.upload', item_id=item.id) }}" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="{{ csrf_token }}">
     <input type="hidden" name="next" value="{{ next_url }}">
-    <p><strong>Drop STL, 3MF or photo files anywhere on this page</strong>, or choose them:</p>
-    <input type="file" name="files" multiple accept=".stl,.3mf,.png,.jpg,.jpeg,.gif,.webp">
+    <p><strong>Drop STL, 3MF, photo or zip files anywhere on this page</strong>, or choose them:</p>
+    <input type="file" name="files" multiple accept=".stl,.3mf,.png,.jpg,.jpeg,.gif,.webp,.zip">
     <button class="btn drop-submit" type="submit">Upload</button>
     <ul class="drop-list"></ul>
     <p class="muted">Files upload straight away and are added to the list below.</p>
