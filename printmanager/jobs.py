@@ -3,6 +3,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 from .auth import login_required, safe_path
 from .db import get_db, utcnow
 from .files import COVER_ID_SQL, FIRST_MODEL_ID_SQL
+from . import spoolman
 
 bp = Blueprint("jobs", __name__)
 
@@ -65,15 +66,112 @@ def add_to_queue(item_id):
         flash("Quantity must be a whole number from 1 to 999.", "error")
         return redirect(back)
 
+    # Optional: queue one STL/3MF of the item instead of the whole item.
+    file_id, file_name = None, ""
+    raw_file = request.form.get("file_id", "").strip()
+    if raw_file:
+        row = None
+        if raw_file.isdigit():
+            row = db.execute(
+                "SELECT id, original_name FROM item_files"
+                " WHERE id = ? AND item_id = ? AND kind = 'model'",
+                (int(raw_file), item_id),
+            ).fetchone()
+        if row is None:
+            flash("That file isn't a 3D model of this item.", "error")
+            return redirect(back)
+        file_id, file_name = row["id"], row["original_name"]
+
+    filament = {"name": "", "material": "", "color": ""}
+    option_id = request.form.get("filament", "").strip()
+    if option_id:
+        option, error = spoolman.resolve(option_id)
+        if option is None:
+            flash(f"{error} Nothing was added; pick a color again.", "error")
+            return redirect(back)
+        filament = option
+
     notes = request.form.get("notes", "").strip()[:500]
     db.execute(
-        "INSERT INTO print_jobs (item_id, quantity, notes, queued_by, queued_at)"
-        " VALUES (?, ?, ?, ?, ?)",
-        (item_id, quantity, notes, g.user["id"], utcnow()),
+        "INSERT INTO print_jobs (item_id, quantity, notes, queued_by, queued_at,"
+        " file_id, file_name, filament_name, filament_material, filament_color)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (item_id, quantity, notes, g.user["id"], utcnow(), file_id, file_name,
+         filament["name"], filament["material"], filament["color"]),
     )
     db.commit()
-    flash(f"Added {quantity} x {item['name']} to the queue.", "success")
+    what = f"{item['name']} ({file_name})" if file_name else item["name"]
+    flash(f"Added {quantity} x {what} to the queue.", "success")
     return redirect(back)
+
+
+@bp.post("/jobs/<int:job_id>/progress")
+@login_required
+def set_progress(job_id):
+    """Mark some of a job's quantity done ("add"), or take some back ("undo")."""
+    db = get_db()
+    job = db.execute(JOB_SELECT + " WHERE j.id = ?", (job_id,)).fetchone()
+    if job is None:
+        abort(404)
+    back = safe_path(request.form.get("next"), url_for("jobs.queue"))
+    try:
+        count = int(request.form.get("count", "1"))
+    except ValueError:
+        count = 0
+    if job["status"] == "completed" or count < 1:
+        flash("Enter a whole number of 1 or more.", "error")
+        return redirect(back)
+
+    if request.form.get("direction") == "undo":
+        done = max(0, job["done_qty"] - count)
+        db.execute("UPDATE print_jobs SET done_qty = ? WHERE id = ?", (done, job_id))
+        db.commit()
+        flash(f"{job['item_name']}: {done} of {job['quantity']} done.", "success")
+        return redirect(back)
+
+    left = job["quantity"] - job["done_qty"]
+    if count > left:
+        flash(f"Only {left} left to print on that job.", "error")
+        return redirect(back)
+    done = job["done_qty"] + count
+    if done == job["quantity"]:
+        now = utcnow()
+        db.execute(
+            "UPDATE print_jobs SET done_qty = ?, status = 'completed', completed_at = ?,"
+            " started_at = ? WHERE id = ?",
+            (done, now, job["started_at"] or now, job_id),
+        )
+        flash(f"{job['item_name']}: all {done} done.", "success")
+    else:
+        db.execute("UPDATE print_jobs SET done_qty = ? WHERE id = ?", (done, job_id))
+        flash(f"{job['item_name']}: {done} of {job['quantity']} done.", "success")
+    db.commit()
+    return redirect(back)
+
+
+@bp.post("/jobs/<int:job_id>/color")
+@login_required
+def set_color(job_id):
+    db = get_db()
+    job = db.execute("SELECT id FROM print_jobs WHERE id = ?", (job_id,)).fetchone()
+    if job is None:
+        abort(404)
+    filament = {"name": "", "material": "", "color": ""}
+    option_id = request.form.get("filament", "").strip()
+    if option_id:
+        option, error = spoolman.resolve(option_id)
+        if option is None:
+            flash(f"{error} The color wasn't changed.", "error")
+            return redirect(safe_path(request.form.get("next"), url_for("jobs.queue")))
+        filament = option
+    db.execute(
+        "UPDATE print_jobs SET filament_name = ?, filament_material = ?,"
+        " filament_color = ? WHERE id = ?",
+        (filament["name"], filament["material"], filament["color"], job_id),
+    )
+    db.commit()
+    flash("Color updated.", "success")
+    return redirect(safe_path(request.form.get("next"), url_for("jobs.queue")))
 
 
 @bp.post("/jobs/<int:job_id>/<action>")
@@ -94,16 +192,20 @@ def update_job(job_id, action):
             flash("That job can't be moved there from its current status.", "error")
         else:
             now = utcnow()
+            done = job["done_qty"]
             if action == "start":
                 started, completed = now, None
             elif action == "complete":
                 started, completed = job["started_at"] or now, now
+                done = job["quantity"]
             else:
                 started, completed = None, None
+                if job["status"] == "completed":  # "print again" starts a fresh run
+                    done = 0
             db.execute(
-                "UPDATE print_jobs SET status = ?, started_at = ?, completed_at = ?"
-                " WHERE id = ?",
-                (new_status, started, completed, job_id),
+                "UPDATE print_jobs SET status = ?, started_at = ?, completed_at = ?,"
+                " done_qty = ? WHERE id = ?",
+                (new_status, started, completed, done, job_id),
             )
             db.commit()
             flash(f"{job['item_name']}: now {new_status}.", "success")

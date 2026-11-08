@@ -128,3 +128,81 @@
   {% endif %}
 </li>
 {% endmacro %}
+
+
+{# ---- filament colors (from Spoolman) ----------------------------------- #}
+
+{# Small color dot plus "PLA · Black" for a job; nothing if no color was chosen. #}
+{% macro filament_chip(job) -%}
+{%- if job.filament_name or job.filament_material or job.filament_color -%}
+<span class="filament-chip">
+  {%- if job.filament_color %}<span class="swatch" style="background: {{ job.filament_color|swatch_css }}"></span>{% endif -%}
+  {{ [job.filament_material, job.filament_name]|select|join(' · ') }}
+</span>
+{%- endif -%}
+{%- endmacro %}
+
+{# Color <select>. colorpicker.js turns it into a dropdown with swatches; without
+   JavaScript it stays a plain select. Renders nothing if Spoolman isn't set up. #}
+{% macro filament_select(label="Filament", autosubmit=False) %}
+{% set options, error, enabled = filament_choices() %}
+{% if enabled %}
+<label class="filament-field">{{ label }}
+  <select name="filament" class="color-select"{% if autosubmit %} data-autosubmit{% endif %}>
+    <option value="">No color chosen</option>
+    {% for o in options %}
+    <option value="{{ o.id }}" data-color="{{ o.color }}">{{ [o.material, o.name]|select|join(' · ') }}</option>
+    {% endfor %}
+  </select>
+</label>
+{% if error %}<p class="muted filament-note">{{ error }} You can still add it without a color.</p>
+{% elif not options %}<p class="muted filament-note">No spools available. Check the Settings page.</p>{% endif %}
+{% endif %}
+{% endmacro %}
+
+{# Change the color of a queued job. #}
+{% macro color_form(job) %}
+{% set options, error, enabled = filament_choices() %}
+{% if enabled and options %}
+<form class="inline color-form" method="post" action="{{ url_for('jobs.set_color', job_id=job.id) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+  <select name="filament" class="color-select" data-autosubmit aria-label="Color for {{ job.item_name }}">
+    {% set ns = namespace(found=false) %}
+    {% for o in options %}{% if o.name == job.filament_name and o.material == job.filament_material and o.color == job.filament_color %}{% set ns.found = true %}{% endif %}{% endfor %}
+    <option value=""{{ ' selected' if not ns.found and not job.filament_name and not job.filament_color }}>No color chosen</option>
+    {% if not ns.found and (job.filament_name or job.filament_color) %}
+    <option value="" data-color="{{ job.filament_color }}" selected disabled>{{ [job.filament_material, job.filament_name]|select|join(' · ') }} (not in stock)</option>
+    {% endif %}
+    {% for o in options %}
+    <option value="{{ o.id }}" data-color="{{ o.color }}"{% if o.name == job.filament_name and o.material == job.filament_material and o.color == job.filament_color %} selected{% endif %}>{{ [o.material, o.name]|select|join(' · ') }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button class="btn btn-small" type="submit">Set</button></noscript>
+</form>
+{% endif %}
+{% endmacro %}
+
+
+{# Progress for a job with more than one copy: "2 of 5 done" and a bar. #}
+{% macro progress(job) %}
+{% if job.quantity > 1 %}
+<div class="progress-line">
+  <div class="bar" role="img" aria-label="{{ job.done_qty }} of {{ job.quantity }} done"><span style="width: {{ (job.done_qty * 100 / job.quantity)|round|int }}%"></span></div>
+  <span class="muted">{{ job.done_qty }} of {{ job.quantity }} done</span>
+</div>
+{% endif %}
+{% endmacro %}
+
+{# "Mark [n] done" for jobs with several copies, with undo. #}
+{% macro progress_form(job) %}
+{% if job.quantity > 1 and job.status != 'completed' %}
+<form class="inline progress-form" method="post" action="{{ url_for('jobs.set_progress', job_id=job.id) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+  <input type="number" name="count" value="1" min="1" max="{{ job.quantity - job.done_qty }}" aria-label="How many are done">
+  <button class="btn" type="submit" name="direction" value="add">Mark done</button>
+  {% if job.done_qty %}<button class="btn btn-ghost" type="submit" name="direction" value="undo" title="Take this many back off the done count">Undo</button>{% endif %}
+</form>
+{% endif %}
+{% endmacro %}

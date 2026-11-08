@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Settings</h1></div>
+
+<form class="panel stack" method="post" action="{{ url_for('settings.index') }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <h2>Spoolman</h2>
+  <p class="muted">Filament colors for the print queue come from your Spoolman. Leave the address empty to turn colors off.</p>
+
+  <label>Spoolman address
+    <input type="url" name="spoolman_url" value="{{ url }}" maxlength="300" placeholder="http://192.168.1.20:7912">
+  </label>
+  {% if url %}
+    {% if connected %}
+    <p class="status-ok">Connected. {{ option_count }} color{{ '' if option_count == 1 else 's' }} available with the location setting below.</p>
+    {% else %}
+    <p class="status-bad">{{ error }}</p>
+    {% endif %}
+  {% endif %}
+
+  <fieldset class="stack">
+    <legend>Spool location</legend>
+    <label class="radio"><input type="radio" name="location_mode" value="any" {{ 'checked' if not location }}> Any location (use every spool)</label>
+    <label class="radio"><input type="radio" name="location_mode" value="only" {{ 'checked' if location }}> Only spools in:
+      <input type="text" name="location" value="{{ location }}" maxlength="100" list="spool-locations" placeholder="e.g. Production">
+    </label>
+    <datalist id="spool-locations">{% for loc in locations %}<option value="{{ loc }}">{% endfor %}</datalist>
+    <p class="muted">Archived and empty spools are never offered. Spools with the same material, name and color appear once.</p>
+  </fieldset>
+
+  <label>Low-stock level (grams)
+    <input type="number" name="low_spool_grams" value="{{ low_grams }}" min="0" max="100000" step="1">
+  </label>
+  <p class="muted">Spools with less than this left are marked "low" on the Spools page.</p>
+
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">Save</button>
+    <button class="btn" type="submit" name="reset" value="1" formnovalidate
+            onclick="return confirm('Go back to the SPOOLMAN_URL and SPOOLMAN_LOCATION environment values?')">Reset to environment defaults</button>
+  </div>
+</form>
+{% endblock %}

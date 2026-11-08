@@ -21,6 +21,7 @@ from flask import (
     url_for,
 )
 from PIL import Image, ImageOps
+from werkzeug.datastructures import FileStorage
 
 from .auth import login_required, safe_path
 from .db import get_db
@@ -136,7 +137,7 @@ def save_upload(storage, item_id):
         kind = "model"
     else:
         raise ValueError(
-            f"{label}: only STL, 3MF, PNG, JPG, GIF and WebP files can be added."
+            f"{label}: only STL, 3MF, PNG, JPG, GIF, WebP and ZIP files can be added."
         )
 
     stored_name = f"{uuid.uuid4().hex}.{ext}"
@@ -176,15 +177,99 @@ def save_upload(storage, item_id):
     return cur.lastrowid
 
 
+ZIP_MAX_FILES = 500
+
+
+def _zip_limit():
+    return int(current_app.config.get("ZIP_MAX_UNCOMPRESSED_MB", 1000)) * 1024 * 1024
+
+
+def _copy_limited(src, dest, limit):
+    """Copy src to dest, counting real bytes. Returns the number copied.
+    Raises ValueError past limit (the sizes a zip declares can't be trusted)."""
+    total = 0
+    while True:
+        chunk = src.read(1024 * 1024)
+        if not chunk:
+            return total
+        total += len(chunk)
+        if total > limit:
+            raise ValueError("too big")
+        dest.write(chunk)
+
+
+def save_zip(storage, item_id):
+    """Add every STL, 3MF and image inside an uploaded zip to an item.
+
+    Folders inside the zip are flattened. Other files are skipped. Returns
+    (number saved, [messages]).
+    """
+    label = _clean_name(storage.filename)[:80] or "zip"
+    saved, messages, skipped = 0, [], 0
+    remaining = _zip_limit()
+    with tempfile.TemporaryDirectory(dir=current_app.config["UPLOAD_FOLDER"]) as tmp:
+        zip_path = os.path.join(tmp, "upload.zip")
+        storage.save(zip_path)
+        try:
+            archive = zipfile.ZipFile(zip_path)
+        except zipfile.BadZipFile:
+            return 0, [f"{label}: this doesn't look like a valid zip file."]
+        with archive:
+            members = [
+                m for m in archive.infolist()
+                if not m.is_dir()
+                and "__MACOSX/" not in m.filename
+                and not os.path.basename(m.filename.replace("\\", "/")).startswith(".")
+            ]
+            if len(members) > ZIP_MAX_FILES:
+                return 0, [f"{label}: more than {ZIP_MAX_FILES} files in the zip."]
+            for member in members:
+                name = _clean_name(member.filename)
+                ext = extension(name)
+                if ext not in IMAGE_EXTENSIONS and ext not in MODEL_EXTENSIONS:
+                    skipped += 1
+                    continue
+                extracted = os.path.join(tmp, uuid.uuid4().hex)
+                try:
+                    with archive.open(member) as src, open(extracted, "wb") as dest:
+                        remaining -= _copy_limited(src, dest, remaining)
+                except ValueError:
+                    messages.append(f"{label}: stopped at {name[:60]}; the zip unpacks to too much data.")
+                    break
+                except (RuntimeError, zipfile.BadZipFile, NotImplementedError):
+                    messages.append(f"{name[:80]}: couldn't be read from the zip (password protected or damaged).")
+                    continue
+                with open(extracted, "rb") as fh:
+                    try:
+                        save_upload(FileStorage(stream=fh, filename=name), item_id)
+                        saved += 1
+                    except ValueError as exc:
+                        messages.append(str(exc))
+                os.remove(extracted)
+    if skipped and saved:
+        messages.append(
+            f"{label}: skipped {skipped} file{'s' if skipped != 1 else ''} that "
+            "aren't STL, 3MF or images."
+        )
+    if not saved and not messages:
+        messages.append(f"{label}: no STL, 3MF or image files found in the zip.")
+    return saved, messages
+
+
 def save_uploads(storages, item_id):
-    """Store several uploads. Returns (number saved, [error messages])."""
+    """Store several uploads (zips are unpacked). Returns (number saved, [messages])."""
     saved, errors = 0, []
     for storage in storages:
         if not storage or not storage.filename:
             continue
         try:
-            save_upload(storage, item_id)
-            saved += 1
+            if extension(storage.filename) == "zip":
+                count, messages = save_zip(storage, item_id)
+                saved += count
+                errors.extend(messages)
+            else:
+                save_upload(storage, item_id)
+                saved += 1
         except ValueError as exc:
             errors.append(str(exc))
     return saved, errors

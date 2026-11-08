@@ -1,7 +1,7 @@
 {# Files of an item. Rendered on the item page (viewer=True, read only) and on
    the edit page (editable=True, with reorder/remove). The upload endpoint
    renders it too, so the edit page can refresh the list after a drop. #}
-{% from "_macros.html" import file_action with context %}
+{% from "_macros.html" import file_action, filament_select with context %}
 
 {% if models %}
 {% if editable %}<h3 class="files-heading">3D models</h3>{% endif %}
@@ -22,6 +22,19 @@
               data-size="{{ f.size }}">View in 3D</button>
       {% endif %}
       <a class="btn btn-small" href="{{ url_for('files.download', file_id=f.id) }}">Download</a>
+      {% if viewer %}
+      <details class="queue-pop">
+        <summary class="btn btn-small btn-primary">Add to queue</summary>
+        <form class="queue-pop-body stack" method="post" action="{{ url_for('jobs.add_to_queue', item_id=f.item_id) }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+          <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+          <input type="hidden" name="file_id" value="{{ f.id }}">
+          <label>Quantity <input type="number" name="quantity" value="1" min="1" max="999"></label>
+          {{ filament_select() }}
+          <button class="btn btn-primary btn-small" type="submit">Add {{ f.original_name }}</button>
+        </form>
+      </details>
+      {% endif %}
       {% if editable %}
         {% if not loop.first %}{{ file_action(f.id, 'up', 'Up', 'btn btn-small', None, next_url) }}{% endif %}
         {% if not loop.last %}{{ file_action(f.id, 'down', 'Down', 'btn btn-small', None, next_url) }}{% endif %}

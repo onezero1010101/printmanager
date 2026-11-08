@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Spools{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Spools</h1>
+  {% if rows %}
+  <div class="actions">
+    <span class="muted">Sort by</span>
+    {% for key, label in (('remaining', 'Most left'), ('material', 'Material'), ('name', 'Color')) %}
+    <a class="btn btn-small{{ ' btn-primary' if sort == key }}" href="{{ url_for('spools.index', sort=key) }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{% if not enabled %}
+<div class="panel empty">
+  <h2>Spoolman isn't set up</h2>
+  <p class="muted">Add its address on the <a href="{{ url_for('settings.index') }}">Settings page</a> to see your spools here.</p>
+</div>
+{% elif error %}
+<div class="panel empty">
+  <h2>Can't reach Spoolman</h2>
+  <p class="muted">{{ error }} Check the address on the <a href="{{ url_for('settings.index') }}">Settings page</a>.</p>
+</div>
+{% elif not rows %}
+<div class="panel empty">
+  <h2>No spools</h2>
+  <p class="muted">{% if location %}No active spools in the location “{{ location }}”.{% else %}Spoolman has no active spools.{% endif %}</p>
+</div>
+{% else %}
+<p class="muted">{{ rows|length }} spool{{ '' if rows|length == 1 else 's' }}{% if location %} in “{{ location }}”{% endif %}{% if low_count %} · {{ low_count }} low or empty (under {{ low_grams }} g){% endif %}</p>
+<ul class="spools">
+  {% for s in rows %}
+  <li class="spool{{ ' is-low' if s.low }}{{ ' is-empty' if s.empty }}">
+    <span class="swatch swatch-big{{ ' swatch-none' if not s.color }}"{% if s.color %} style="background: {{ s.color|swatch_css }}"{% endif %}></span>
+    <div class="spool-main">
+      <div class="spool-title">
+        <strong>{{ [s.material, s.name]|select|join(' · ') }}</strong>
+        {% if s.vendor %}<span class="muted">{{ s.vendor }}</span>{% endif %}
+        {% if s.empty %}<span class="chip chip-queued">empty</span>{% elif s.low %}<span class="chip chip-queued">low</span>{% endif %}
+      </div>
+      {% if s.percent is not none %}
+      <div class="bar" role="img" aria-label="{{ s.percent }}% left"><span style="width: {{ s.percent }}%"></span></div>
+      {% endif %}
+      <div class="muted">
+        {% if s.remaining_g is not none %}{{ '%.0f'|format(s.remaining_g) }} g{% if s.initial_g %} of {{ '%.0f'|format(s.initial_g) }} g{% endif %} left{% else %}Weight unknown{% endif %}
+        {% if s.remaining_m is not none %} · {{ '%.0f'|format(s.remaining_m) }} m{% endif %}
+        {% if s.location and not location %} · {{ s.location }}{% endif %}
+      </div>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}
