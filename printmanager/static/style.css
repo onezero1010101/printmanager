@@ -359,8 +359,7 @@ fieldset { border: 1px solid var(--border); border-radius: 8px; padding: .75rem;
 /* ---- spools page ---------------------------------------------------------- */
 .spools { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); }
 .spool { display: flex; gap: .8rem; align-items: center; padding: .8rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
-.spool.is-low { border-color: var(--queued); }
-.spool.is-empty { opacity: .65; }
+.spool.is-low, .spool.is-empty { border-color: var(--queued); }
 .spool-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .35rem; }
 .spool-title { display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
 .swatch-big { width: 2.2rem; height: 2.2rem; margin: 0; }

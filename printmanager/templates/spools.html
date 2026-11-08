@@ -38,7 +38,7 @@
       <div class="spool-title">
         <strong>{{ [s.material, s.name]|select|join(' · ') }}</strong>
         {% if s.vendor %}<span class="muted">{{ s.vendor }}</span>{% endif %}
-        {% if s.empty %}<span class="chip chip-gap">empty</span>{% elif s.low %}<span class="chip chip-queued">low</span>{% endif %}
+        {% if s.empty %}<span class="chip chip-queued">empty</span>{% elif s.low %}<span class="chip chip-queued">low</span>{% endif %}
       </div>
       {% if s.percent is not none %}
       <div class="bar" role="img" aria-label="{{ s.percent }}% left"><span style="width: {{ s.percent }}%"></span></div>
