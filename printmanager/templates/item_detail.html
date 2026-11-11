@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import action, filament_select, filament_chip with context %}
+{% from "_macros.html" import action, filament_select, filament_chip, tag_chips with context %}
 {% block title %}{{ item.name }}{% endblock %}
 {% block content %}
 <p><a class="muted" href="{{ url_for('inventory.index') }}">&larr; Inventory</a></p>
@@ -36,6 +36,7 @@
 
   <div class="detail-info">
     <h1>{{ item.name }}</h1>
+    {{ tag_chips(tags) }}
     {% if item.description %}<p class="prewrap">{{ item.description }}</p>{% endif %}
     {% if item.model_url %}
     <p><a href="{{ item.model_url }}" target="_blank" rel="noopener noreferrer">Open model link</a></p>

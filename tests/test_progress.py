@@ -58,17 +58,42 @@ def test_chips_count_finished_units_immediately(auth, app):
     assert "2 printed" in page and "3 queued" in page
 
 
-def test_finish_all_and_print_again_reset(auth, app):
+def test_finish_all_then_print_again_keeps_the_original(auth, app):
     item = make_item(auth)
     queue(auth, item, 4)
     job = first_job(app)["id"]
     progress(auth, job, 1)
     auth.post(f"/jobs/{job}/complete")
     assert first_job(app)["done_qty"] == 4
-    auth.post(f"/jobs/{job}/requeue")
+
+    page = auth.get("/history").data.decode()
+    assert 'name="quantity" value="1"' in page  # not pre-filled with the old quantity
+    auth.post(f"/jobs/{job}/again", data={"quantity": "2", "next": "/history"})
+    with app.app_context():
+        rows = [dict(r) for r in get_db().execute("SELECT * FROM print_jobs ORDER BY id")]
+    assert [(r["status"], r["quantity"], r["done_qty"]) for r in rows] == [("completed", 4, 4), ("queued", 2, 0)]
+    assert "4 &times;" in auth.get("/history").data.decode()   # the original is still there
+    assert "2 &times;" in auth.get("/queue").data.decode()
+
+
+def test_print_again_copies_part_and_color_and_validates(auth, app):
+    item = make_item(auth)
+    with app.app_context():
+        db = get_db()
+        db.execute("INSERT INTO print_jobs (item_id, quantity, status, notes, file_name, filament_name,"
+                   " filament_material, filament_color, done_qty, completed_at) VALUES"
+                   " (?, 5, 'completed', 'fast', 'b.stl', 'Red', 'PETG', 'ff0000', 5, '2026-01-01 00:00:00')", (item,))
+        db.commit()
+    job = first_job(app)["id"]
+    for bad in ("0", "abc", "1000", ""):
+        auth.post(f"/jobs/{job}/again", data={"quantity": bad})
+    with app.app_context():
+        assert get_db().execute("SELECT COUNT(*) FROM print_jobs").fetchone()[0] == 1  # bad quantities add nothing
+    auth.post(f"/jobs/{job}/again", data={})  # blank form field = default quantity of 1
     row = first_job(app)
-    assert row["status"] == "queued" and row["done_qty"] == 0
-    assert progress(auth, job, 1, "add").status_code == 302
+    assert row["id"] != job and row["quantity"] == 1
+    assert (row["file_name"], row["filament_name"], row["filament_color"], row["notes"]) == ("b.stl", "Red", "ff0000", "fast")
+    assert auth.post("/jobs/999/again", data={}).status_code == 404
 
 
 def test_single_item_jobs_unchanged(auth, app):

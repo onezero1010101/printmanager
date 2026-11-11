@@ -60,10 +60,25 @@ CREATE TABLE IF NOT EXISTS item_files (
     size INTEGER NOT NULL DEFAULT 0,
     sort_order INTEGER NOT NULL DEFAULT 0,
     uploaded_by INTEGER REFERENCES users(id),
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    -- Overall size of a model in mm, measured once (see modelsize.py). dims_done
+    -- is 1 once measuring was tried, so an unreadable file isn't retried forever.
+    dim_x REAL,
+    dim_y REAL,
+    dim_z REAL,
+    dims_done INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_files_item ON item_files(item_id);
+
+-- Free-form tags on items. Tags match regardless of upper/lower case.
+CREATE TABLE IF NOT EXISTS item_tags (
+    item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    tag TEXT NOT NULL COLLATE NOCASE,
+    PRIMARY KEY (item_id, tag)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tags_tag ON item_tags(tag);
 
 -- Settings changed on the Settings page. They override the environment
 -- variables of the same purpose (see settings.py).

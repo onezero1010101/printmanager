@@ -21,7 +21,7 @@ LEFT JOIN users u ON u.id = j.queued_by
 TRANSITIONS = {
     "start": ({"queued"}, "printing"),
     "complete": ({"queued", "printing"}, "completed"),
-    "requeue": ({"printing", "completed"}, "queued"),
+    "requeue": ({"printing"}, "queued"),  # "Back to queue"; finished prints use print_again
 }
 
 
@@ -101,6 +101,36 @@ def add_to_queue(item_id):
     )
     db.commit()
     what = f"{item['name']} ({file_name})" if file_name else item["name"]
+    flash(f"Added {quantity} x {what} to the queue.", "success")
+    return redirect(back)
+
+
+@bp.post("/jobs/<int:job_id>/again")
+@login_required
+def print_again(job_id):
+    """Queue a new job like a finished one. The finished job stays in History."""
+    db = get_db()
+    job = db.execute(JOB_SELECT + " WHERE j.id = ?", (job_id,)).fetchone()
+    if job is None:
+        abort(404)
+    back = safe_path(request.form.get("next"), url_for("jobs.history"))
+    try:
+        quantity = int(request.form.get("quantity", "1"))
+    except ValueError:
+        quantity = 0
+    if not 1 <= quantity <= 999:
+        flash("Quantity must be a whole number from 1 to 999.", "error")
+        return redirect(back)
+    db.execute(
+        "INSERT INTO print_jobs (item_id, quantity, notes, queued_by, queued_at,"
+        " file_id, file_name, filament_name, filament_material, filament_color)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (job["item_id"], quantity, job["notes"], g.user["id"], utcnow(), job["file_id"],
+         job["file_name"], job["filament_name"], job["filament_material"],
+         job["filament_color"]),
+    )
+    db.commit()
+    what = f"{job['item_name']} ({job['file_name']})" if job["file_name"] else job["item_name"]
     flash(f"Added {quantity} x {what} to the queue.", "success")
     return redirect(back)
 
@@ -200,8 +230,6 @@ def update_job(job_id, action):
                 done = job["quantity"]
             else:
                 started, completed = None, None
-                if job["status"] == "completed":  # "print again" starts a fresh run
-                    done = 0
             db.execute(
                 "UPDATE print_jobs SET status = ?, started_at = ?, completed_at = ?,"
                 " done_qty = ? WHERE id = ?",
