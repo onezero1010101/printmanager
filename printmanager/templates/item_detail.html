@@ -36,6 +36,7 @@
 
   <div class="detail-info">
     <h1>{{ item.name }}</h1>
+    {% if printed_total %}<p class="printed-total"><span class="chip chip-done">Printed {{ printed_total }}&times; in total</span></p>{% endif %}
     {{ tag_chips(tags) }}
     {% if item.description %}<p class="prewrap">{{ item.description }}</p>{% endif %}
     {% if item.model_url %}
@@ -101,12 +102,14 @@
         <td>{{ job.quantity }}{% if job.quantity > 1 and job.status != 'completed' %}<br><span class="muted">{{ job.done_qty }} done</span>{% endif %}</td>
         <td>{{ job.file_name or 'Whole item' }}</td>
         <td>{{ filament_chip(job) }}</td>
-        <td><span class="chip chip-{{ job.status }}">{{ job.status }}</span></td>
+        <td><span class="chip chip-{{ job.stage }}">{{ job.stage }}</span></td>
         <td>{{ job.queued_at|localtime }}{% if job.queued_by_name %}<br><span class="muted">{{ job.queued_by_name }}</span>{% endif %}</td>
         <td>{{ job.completed_at|localtime }}</td>
         <td>{{ job.notes }}</td>
         <td class="right">
-          {% if job.status != 'completed' %}
+          {% if job.stage == 'ready' %}
+            {{ action(job.id, 'pickup', 'Picked up', 'btn btn-small') }}
+          {% elif job.status != 'completed' %}
             {{ action(job.id, 'complete', 'Mark done', 'btn btn-small') }}
           {% endif %}
           {{ action(job.id, 'delete', 'Remove', 'btn btn-small btn-danger', 'Remove this job from the history?') }}

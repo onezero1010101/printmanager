@@ -318,7 +318,9 @@ def _item_form(item):
 def item_detail(item_id):
     item = _get_item(item_id)
     jobs = get_db().execute(
-        "SELECT j.*, u.username AS queued_by_name FROM print_jobs j"
+        "SELECT j.*, u.username AS queued_by_name,"
+        " CASE WHEN j.status = 'completed' AND j.picked_up_at IS NULL THEN 'ready'"
+        " ELSE j.status END AS stage FROM print_jobs j"
         " LEFT JOIN users u ON u.id = j.queued_by"
         " WHERE j.item_id = ? ORDER BY j.id DESC",
         (item_id,),
@@ -332,6 +334,7 @@ def item_detail(item_id):
         "item_detail.html",
         item=item,
         jobs=jobs,
+        printed_total=sum(j["done_qty"] for j in jobs),
         tags=tags_by_item(get_db()).get(item_id, []),
         images=images,
         models=models,

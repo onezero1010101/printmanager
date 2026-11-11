@@ -221,6 +221,10 @@ def test_queue_lifecycle(auth, app):
     job = job_status(app, 1)
     assert job["status"] == "completed" and job["completed_at"]
 
+    # Finished jobs wait for pickup before they reach history.
+    assert b"3 &times; Benchy" not in auth.get("/history").data
+    assert b"Ready for pickup" in auth.get("/queue").data
+    auth.post("/jobs/1/pickup")
     assert b"3 &times; Benchy" in auth.get("/history").data
     assert b"3 &times; Benchy" not in auth.get("/queue").data
 

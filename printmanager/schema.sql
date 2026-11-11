@@ -42,7 +42,11 @@ CREATE TABLE IF NOT EXISTS print_jobs (
     filament_material TEXT NOT NULL DEFAULT '',
     filament_color TEXT NOT NULL DEFAULT '',
     -- How many of quantity are finished. Equals quantity once the job is completed.
-    done_qty INTEGER NOT NULL DEFAULT 0
+    done_qty INTEGER NOT NULL DEFAULT 0,
+    -- A finished job (status 'completed') waits in "Ready for pickup" until
+    -- someone picks it up, which sets picked_up_at and moves it to History.
+    -- completed_at is when the print finished.
+    picked_up_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON print_jobs(status);

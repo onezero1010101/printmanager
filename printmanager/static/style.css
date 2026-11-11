@@ -404,3 +404,9 @@ fieldset { border: 1px solid var(--border); border-radius: 8px; padding: .75rem;
 .tag-suggest { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; }
 .tag-heading { margin: 0; padding: .6rem .75rem 0; font-weight: 600; font-size: .85rem; color: var(--muted); }
 @media (max-width: 860px) { .tag-heading { display: none; } }
+
+/* ---- ready for pickup / print counts --------------------------------------- */
+.chip-ready { background: #ede9fe; color: #6d28d9; }
+.badge-ready { background: #6d28d9; margin-left: .25rem; }
+.printed-total { margin: .25rem 0; }
+.printed-count { color: var(--done); font-weight: 600; }

@@ -301,10 +301,19 @@ def save_uploads(storages, item_id):
     return saved, errors
 
 
+# Copies printed of a model: jobs queued for that file, plus whole-item jobs
+# (no file chosen), which print every model of the item.
+PRINTED_QTY_SQL = (
+    "SELECT COALESCE(SUM(j.done_qty), 0) FROM print_jobs j WHERE j.item_id = f.item_id"
+    " AND (j.file_id = f.id OR (j.file_id IS NULL AND j.file_name = ''))"
+)
+
+
 def files_for_item(item_id):
     """(images, models) for an item, each in display order."""
     rows = get_db().execute(
-        "SELECT * FROM item_files WHERE item_id = ? ORDER BY sort_order, id",
+        "SELECT f.*, (" + PRINTED_QTY_SQL + ") AS printed_qty FROM item_files f"
+        " WHERE f.item_id = ? ORDER BY f.sort_order, f.id",
         (item_id,),
     ).fetchall()
     return (

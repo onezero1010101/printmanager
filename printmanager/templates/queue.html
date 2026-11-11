@@ -9,7 +9,7 @@
   </div>
 </div>
 
-{% if not printing and not queued %}
+{% if not printing and not queued and not ready %}
 <div class="panel empty">
   <h2>Nothing to print</h2>
   <p class="muted">Add items from the inventory and they'll show up here.</p>
@@ -32,7 +32,28 @@
       {% if job.file_id %}<a class="btn" href="{{ url_for('files.download', file_id=job.file_id) }}">Download file</a>{% endif %}
       {{ progress_form(job) }}
       {{ action(job.id, 'complete', 'Finish all' if job.quantity - job.done_qty > 1 and job.quantity > 1 else 'Mark done', 'btn btn-primary') }}
+      {{ action(job.id, 'complete_pickup', 'Done, picked up', 'btn') }}
       {{ action(job.id, 'requeue', 'Back to queue', 'btn') }}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if ready %}
+<h2>Ready for pickup</h2>
+<ul class="jobs">
+  {% for job in ready %}
+  <li class="job">
+    {{ mini_cover(job, job.item_name) }}
+    <div class="job-main">
+      <a class="job-title" href="{{ url_for('inventory.item_detail', item_id=job.item_id) }}">{{ job.quantity }} &times; {{ job.item_name }}</a>{% if job.file_name %} <span class="part">{{ job.file_name }}</span>{% endif %} {{ filament_chip(job) }}
+      <div class="muted">Finished {{ job.completed_at|localtime }}{% if job.notes %} · {{ job.notes }}{% endif %}</div>
+    </div>
+    <div class="job-actions">
+      {{ action(job.id, 'pickup', 'Picked up', 'btn btn-primary') }}
+      {{ action(job.id, 'unready', 'Back to printing', 'btn') }}
+      {{ action(job.id, 'delete', 'Remove', 'btn btn-danger', 'Remove this job from the queue?') }}
     </div>
   </li>
   {% endfor %}
@@ -56,6 +77,7 @@
       {{ action(job.id, 'start', 'Start printing', 'btn') }}
       {{ progress_form(job) }}
       {{ action(job.id, 'complete', 'Finish all' if job.quantity - job.done_qty > 1 and job.quantity > 1 else 'Mark done', 'btn btn-primary') }}
+      {{ action(job.id, 'complete_pickup', 'Done, picked up', 'btn') }}
       {{ action(job.id, 'delete', 'Remove', 'btn btn-danger', 'Remove this job from the queue?') }}
     </div>
   </li>

@@ -36,6 +36,7 @@ def test_partial_progress_keeps_job_in_queue_until_all_done(auth, app):
     progress(auth, job, 4)
     row = first_job(app)
     assert row["status"] == "completed" and row["done_qty"] == 5 and row["completed_at"]
+    assert row["picked_up_at"] is None  # waits in "Ready for pickup"
 
 
 def test_cannot_overshoot_or_use_bad_counts(auth, app):
@@ -65,6 +66,7 @@ def test_finish_all_then_print_again_keeps_the_original(auth, app):
     progress(auth, job, 1)
     auth.post(f"/jobs/{job}/complete")
     assert first_job(app)["done_qty"] == 4
+    auth.post(f"/jobs/{job}/pickup")
 
     page = auth.get("/history").data.decode()
     assert 'name="quantity" value="1"' in page  # not pre-filled with the old quantity
