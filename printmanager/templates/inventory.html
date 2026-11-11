@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import item_card, item_row, tree_node, tree_counts with context %}
+{% from "_macros.html" import item_card, item_row, tree_node, tree_counts, tag_chips with context %}
 {% block title %}Inventory{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -8,7 +8,8 @@
     <form class="search" method="get" action="{{ url_for('inventory.index') }}">
       {% if folder %}<input type="hidden" name="folder" value="{{ folder }}">{% endif %}
       {% if missing %}<input type="hidden" name="missing" value="{{ missing|join(',') }}">{% endif %}
-      <input type="search" name="q" value="{{ q }}" placeholder="Search name, notes or path" aria-label="Search">
+      {% if selected_tags %}<input type="hidden" name="tag" value="{{ selected_tags|join(',') }}">{% endif %}
+      <input type="search" name="q" value="{{ q }}" placeholder="Search name, notes, path or tags" aria-label="Search">
       <button class="btn" type="submit">Search</button>
     </form>
     <a class="btn btn-primary" href="{{ url_for('inventory.new_item') }}">Add item</a>
@@ -51,6 +52,19 @@
         <p class="tree-legend muted"><span class="tree-warn"></span> items without a 3D model</p>
       </nav>
     </details>
+
+    {% if tag_counts %}
+    <details id="tag-panel" class="tree-panel tag-panel" open>
+      <summary class="tree-panel-summary">Tags{% if selected_tags %} <span class="muted">· {{ selected_tags|length }} selected</span>{% endif %}</summary>
+      <p class="tag-heading">Tags</p>
+      <ul class="tag-list">
+        {% for t in tag_counts %}
+        <li><a class="tag{{ ' active' if t.active }}" href="{{ t.url }}" aria-pressed="{{ 'true' if t.active else 'false' }}">{{ t.name }} <span>{{ t.count }}</span></a></li>
+        {% endfor %}
+      </ul>
+      {% if selected_tags %}<p class="muted tag-note">Showing items with all selected tags. <a href="{{ link(tag='') }}">Clear tags</a></p>{% endif %}
+    </details>
+    {% endif %}
   </aside>
 
   <section class="inv-main">

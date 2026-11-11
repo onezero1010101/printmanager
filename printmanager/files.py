@@ -23,6 +23,7 @@ from flask import (
 from PIL import Image, ImageOps
 from werkzeug.datastructures import FileStorage
 
+from . import modelsize
 from .auth import login_required, safe_path
 from .db import get_db
 
@@ -160,9 +161,11 @@ def save_upload(storage, item_id):
         " WHERE item_id = ? AND kind = ?",
         (item_id, kind),
     ).fetchone()[0]
+    dims = modelsize.model_size(path, ext) if kind == "model" else None
     cur = db.execute(
         "INSERT INTO item_files (item_id, kind, original_name, stored_name, size,"
-        " sort_order, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        " sort_order, uploaded_by, dim_x, dim_y, dim_z, dims_done)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             item_id,
             kind,
@@ -171,10 +174,33 @@ def save_upload(storage, item_id):
             os.path.getsize(path),
             next_order,
             g.user["id"],
+            *(dims or (None, None, None)),
+            1 if kind == "model" else 0,
         ),
     )
     db.commit()
     return cur.lastrowid
+
+
+def measure_missing_models():
+    """Measure models that haven't been measured yet (files from before sizes
+    were stored). Run once at startup; a file that can't be read is marked done
+    with no size, so it isn't tried again. Returns how many were looked at."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, stored_name FROM item_files WHERE kind = 'model' AND dims_done = 0"
+    ).fetchall()
+    for row in rows:
+        path = _disk_path(row["stored_name"])
+        dims = None
+        if os.path.exists(path):
+            dims = modelsize.model_size(path, extension(row["stored_name"]))
+        db.execute(
+            "UPDATE item_files SET dim_x = ?, dim_y = ?, dim_z = ?, dims_done = 1 WHERE id = ?",
+            (*(dims or (None, None, None)), row["id"]),
+        )
+    db.commit()
+    return len(rows)
 
 
 ZIP_MAX_FILES = 500

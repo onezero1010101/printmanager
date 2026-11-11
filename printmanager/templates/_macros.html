@@ -66,9 +66,22 @@
   <input type="hidden" name="_csrf" value="{{ csrf_token }}">
   <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
   <input type="number" name="quantity" value="1" min="1" max="999" aria-label="Quantity for {{ item.name }}">
+  {{ filament_select(label="Color", compact=True) }}
   <button class="btn btn-primary" type="submit">Add to queue</button>
 </form>
 {% endmacro %}
+
+{# Tag chips. On the inventory page they add the tag to the filter; elsewhere
+   they open the inventory filtered by that tag. #}
+{% macro tag_chips(tags) -%}
+{%- if tags -%}
+<ul class="tags" aria-label="Tags">
+  {%- for t in tags %}
+  <li><a class="tag" href="{{ tag_url(t) if tag_url is defined else url_for('inventory.index', tag=t) }}">{{ t }}</a></li>
+  {%- endfor %}
+</ul>
+{%- endif -%}
+{%- endmacro %}
 
 {% macro item_card(item) %}
 <article class="card">
@@ -80,6 +93,7 @@
     {% if item.folder_label %}<span class="path">{{ item.folder_label }}</span>{% endif %}
     {% if item.description %}<p class="muted clamp">{{ item.description }}</p>{% endif %}
     <div class="chips">{{ qty_chips(item) }}{{ gaps(item) }}</div>
+    {{ tag_chips(item.tags) }}
     {{ queue_form(item) }}
   </div>
 </article>
@@ -94,6 +108,7 @@
     <a class="row-title" href="{{ url_for('inventory.item_detail', item_id=item.id) }}">{{ item.name }}</a>
     {% if item.folder_label %}<span class="path">{{ item.folder_label }}</span>{% endif %}
     <div class="chips">{{ qty_chips(item) }}{{ gaps(item) }}</div>
+    {{ tag_chips(item.tags) }}
   </div>
   {{ queue_form(item) }}
 </li>
@@ -144,18 +159,18 @@
 
 {# Color <select>. colorpicker.js turns it into a dropdown with swatches; without
    JavaScript it stays a plain select. Renders nothing if Spoolman isn't set up. #}
-{% macro filament_select(label="Filament", autosubmit=False) %}
+{% macro filament_select(label="Filament", autosubmit=False, compact=False) %}
 {% set options, error, enabled = filament_choices() %}
 {% if enabled %}
-<label class="filament-field">{{ label }}
+<label class="filament-field{{ ' compact' if compact }}"><span{% if compact %} class="sr-only"{% endif %}>{{ label }}</span>
   <select name="filament" class="color-select"{% if autosubmit %} data-autosubmit{% endif %}>
-    <option value="">No color chosen</option>
+    <option value="">{{ 'No color' if compact else 'No color chosen' }}</option>
     {% for o in options %}
     <option value="{{ o.id }}" data-color="{{ o.color }}">{{ [o.material, o.name]|select|join(' · ') }}</option>
     {% endfor %}
   </select>
 </label>
-{% if error %}<p class="muted filament-note">{{ error }} You can still add it without a color.</p>
+{% if compact %}{% elif error %}<p class="muted filament-note">{{ error }} You can still add it without a color.</p>
 {% elif not options %}<p class="muted filament-note">No spools available. Check the Settings page.</p>{% endif %}
 {% endif %}
 {% endmacro %}
@@ -206,3 +221,16 @@
 </form>
 {% endif %}
 {% endmacro %}
+
+
+{# ---- bed fit ------------------------------------------------------------ #}
+
+{% macro fit_badge(result) -%}
+{%- if result -%}
+<span class="fit fit-{{ result.status }}">{{ '✓ ' if result.status == 'fits' }}{{ result.text }}</span>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro dims_text(f) -%}
+{%- if f.dim_x is not none -%}{{ f.dim_x|mm }} × {{ f.dim_y|mm }} × {{ f.dim_z|mm }} mm{%- endif -%}
+{%- endmacro %}

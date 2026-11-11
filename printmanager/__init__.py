@@ -42,6 +42,11 @@ def create_app(test_config=None):
         SPOOLMAN_LOCATION=os.environ.get("SPOOLMAN_LOCATION", ""),
         # Spools with less than this many grams left are marked "low".
         LOW_SPOOL_GRAMS=os.environ.get("LOW_SPOOL_GRAMS", "100"),
+        # Printer build volume in mm; models are checked against it (blank = no check).
+        BED_X=os.environ.get("BED_X", ""),
+        BED_Y=os.environ.get("BED_Y", ""),
+        BED_Z=os.environ.get("BED_Z", ""),
+        BED_MARGIN=os.environ.get("BED_MARGIN", "5"),
         ZIP_MAX_UNCOMPRESSED_MB=int(os.environ.get("ZIP_MAX_UNCOMPRESSED_MB", "1000")),
     )
     if test_config:
@@ -55,6 +60,11 @@ def create_app(test_config=None):
     from . import auth, db, files, inventory, jobs, settings, spools
 
     db.init_app(app)
+    with app.app_context():
+        try:
+            files.measure_missing_models()  # sizes for files uploaded before they were stored
+        except Exception:  # never stop the app from starting over this
+            app.logger.warning("Could not measure existing models", exc_info=True)
     app.register_blueprint(auth.bp)
     app.register_blueprint(files.bp)
     app.register_blueprint(inventory.bp)
@@ -106,6 +116,50 @@ def create_app(test_config=None):
             else:
                 g.filament_choices = ([], "", False)
         return g.filament_choices
+
+    def _bed():
+        if "bed" not in g:
+            from .settings import bed
+
+            g.bed = bed()
+        return g.bed
+
+    @app.template_global()
+    def fit_of(f):
+        """Fit result for one model row, or None if there's no bed size or no measurement."""
+        from .modelsize import check_fit
+
+        bed = _bed()
+        if bed is None or f["dim_x"] is None:
+            return None
+        return check_fit((f["dim_x"], f["dim_y"], f["dim_z"]), *bed)
+
+    @app.template_global()
+    def job_fit(job):
+        """Fit result for a queued job: its file, or the worst model of the whole item."""
+        if _bed() is None:
+            return None
+        from .db import get_db
+
+        if job["file_id"]:
+            rows = get_db().execute(
+                "SELECT dim_x, dim_y, dim_z FROM item_files WHERE id = ?", (job["file_id"],)
+            ).fetchall()
+        else:
+            rows = get_db().execute(
+                "SELECT dim_x, dim_y, dim_z FROM item_files WHERE item_id = ? AND kind = 'model'",
+                (job["item_id"],),
+            ).fetchall()
+        results = [r for r in (fit_of(row) for row in rows) if r]
+        for status in ("big", "rotate"):
+            for r in results:
+                if r["status"] == status:
+                    return r
+        return results[0] if results else None
+
+    @app.template_filter("mm")
+    def mm(value):
+        return f"{value:.1f}".rstrip("0").rstrip(".") if value is not None else ""
 
     @app.template_filter("swatch_css")
     def swatch_css(value):

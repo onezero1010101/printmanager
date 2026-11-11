@@ -12,6 +12,15 @@
     <label>Description
       <textarea name="description" rows="4" placeholder="Print settings, colors, supports, anything worth remembering">{{ f.description or '' }}</textarea>
     </label>
+    <label>Tags <span class="muted">(optional: separate with commas, e.g. gift, functional)</span>
+      <input type="text" name="tags" id="tags-input" value="{{ tags_text }}" maxlength="700" autocomplete="off" spellcheck="false" placeholder="gift, functional">
+    </label>
+    {% if known_tags %}
+    <div class="tag-suggest" data-tag-suggest="tags-input" hidden>
+      <span class="muted">Used before:</span>
+      {% for t in known_tags %}<button type="button" class="tag" data-tag="{{ t }}">{{ t }}</button>{% endfor %}
+    </div>
+    {% endif %}
     <label>Model link <span class="muted">(optional: Printables, Thingiverse, etc.)</span>
       <input type="url" name="model_url" value="{{ f.model_url or '' }}" placeholder="https://">
     </label>
@@ -57,4 +66,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='dropzone.js') }}"></script>
+<script src="{{ url_for('static', filename='tags.js') }}"></script>
 {% endblock %}

@@ -1,7 +1,7 @@
 {# Files of an item. Rendered on the item page (viewer=True, read only) and on
    the edit page (editable=True, with reorder/remove). The upload endpoint
    renders it too, so the edit page can refresh the list after a drop. #}
-{% from "_macros.html" import file_action, filament_select with context %}
+{% from "_macros.html" import file_action, filament_select, fit_badge, dims_text with context %}
 
 {% if models %}
 {% if editable %}<h3 class="files-heading">3D models</h3>{% endif %}
@@ -11,7 +11,8 @@
     <span class="file-ext">{{ f.original_name|fileext }}</span>
     <div class="file-main">
       <span class="file-name">{{ f.original_name }}</span>
-      <span class="muted">{{ f.size|filesize }}</span>
+      <span class="muted">{{ f.size|filesize }}{% if f.dim_x is not none %} · <span class="dims">{{ dims_text(f) }}</span>{% endif %}</span>
+      {{ fit_badge(fit_of(f)) }}
     </div>
     <div class="file-actions">
       {% if viewer %}

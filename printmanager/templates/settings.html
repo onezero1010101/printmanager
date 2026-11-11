@@ -34,6 +34,16 @@
   </label>
   <p class="muted">Spools with less than this left are marked "low" on the Spools page.</p>
 
+  <h2>Printer bed</h2>
+  <p class="muted">Models are checked against your build volume. Leave the sizes empty to turn the check off.</p>
+  <div class="bed-fields">
+    <label>Width X (mm) <input type="number" name="bed_x" value="{{ bed_x }}" min="1" max="10000" step="any" inputmode="decimal"></label>
+    <label>Depth Y (mm) <input type="number" name="bed_y" value="{{ bed_y }}" min="1" max="10000" step="any" inputmode="decimal"></label>
+    <label>Height Z (mm) <input type="number" name="bed_z" value="{{ bed_z }}" min="1" max="10000" step="any" inputmode="decimal"></label>
+    <label>Margin (mm) <input type="number" name="bed_margin" value="{{ bed_margin }}" min="0" max="100" step="any" inputmode="decimal"></label>
+  </div>
+  <p class="muted">The margin is kept free on every side of the bed (X and Y). A model also counts as fitting if it fits turned flat or on its side.</p>
+
   <div class="actions">
     <button class="btn btn-primary" type="submit">Save</button>
     <button class="btn" type="submit" name="reset" value="1" formnovalidate

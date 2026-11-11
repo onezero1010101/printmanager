@@ -55,6 +55,16 @@ def init_db():
         # Jobs finished before this existed were finished in full.
         db.execute("UPDATE print_jobs SET done_qty = quantity WHERE status = 'completed'")
 
+    file_columns = {row["name"] for row in db.execute("PRAGMA table_info(item_files)")}
+    for name, definition in (
+        ("dim_x", "REAL"),
+        ("dim_y", "REAL"),
+        ("dim_z", "REAL"),
+        ("dims_done", "INTEGER NOT NULL DEFAULT 0"),
+    ):
+        if name not in file_columns:
+            db.execute(f"ALTER TABLE item_files ADD COLUMN {name} {definition}")
+
     # Single photos (items.image_filename) became rows in item_files.
     old_photos = db.execute(
         "SELECT id, image_filename FROM items WHERE image_filename IS NOT NULL"

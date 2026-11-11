@@ -19,6 +19,7 @@ from .files import (
     remove_item_files,
     save_uploads,
 )
+from .tags import all_tags, parse_tags, set_tags, tags_by_item
 from .folders import (
     NO_PATH,
     TOP,
@@ -65,7 +66,9 @@ def _load_items():
             "SELECT id, stored_name, size FROM item_files WHERE kind = 'model'"
         )
     }
+    tags = tags_by_item(db)
     for item in items:
+        item["tags"] = tags.get(item["id"], [])
         model = models.get(item["first_model_id"])
         item["first_model_ext"] = model["stored_name"].rsplit(".", 1)[-1] if model else ""
         item["first_model_size"] = model["size"] if model else 0
@@ -88,6 +91,11 @@ def index():
     for key in request.args.get("missing", "").split(","):
         if key in MISSING and key not in missing:
             missing.append(key)
+    selected_tags = []
+    for raw in request.args.get("tag", "").split(","):
+        raw = raw.strip()
+        if raw and raw.casefold() not in [t.casefold() for t in selected_tags]:
+            selected_tags.append(raw)
     view = request.args.get("view")
     if view not in VIEWS:
         view = request.cookies.get("pm_view")
@@ -99,13 +107,23 @@ def index():
     depth = common_depth(folders.values())
 
     needle = q.casefold()
-    matching = [
+    wanted = {t.casefold() for t in selected_tags}
+
+    def has_all_tags(item, extra=()):
+        have = {t.casefold() for t in item["tags"]}
+        return wanted <= have and all(e.casefold() in have for e in extra)
+
+    searched = [
         item
         for item in items
-        if (not needle or needle in f"{item['name']}\n{item['description']}\n{item['path']}".casefold())
+        if (
+            not needle
+            or needle in f"{item['name']}\n{item['description']}\n{item['path']}\n{' '.join(item['tags'])}".casefold()
+        )
         and all(MISSING[key][1](item) for key in missing)
     ]
-    filtering = bool(needle or missing)
+    matching = [item for item in searched if has_all_tags(item)]
+    filtering = bool(needle or missing or selected_tags)
     tree, specials = build_tree(
         items,
         folders,
@@ -121,7 +139,8 @@ def index():
 
     def link(**overrides):
         """URL of this page with some settings changed (empty values are dropped)."""
-        params = {"q": q, "folder": folder, "missing": ",".join(missing)}
+        params = {"q": q, "folder": folder, "missing": ",".join(missing),
+                  "tag": ",".join(selected_tags)}
         params.update(overrides)
         return url_for("inventory.index", **{k: v for k, v in params.items() if v})
 
@@ -138,6 +157,27 @@ def index():
                 "url": link(missing=",".join(toggled)),
             }
         )
+
+    def tag_url(name):
+        """This page with a tag added to the filter (or taken off if it's already there)."""
+        key = name.casefold()
+        if key in wanted:
+            rest = [t for t in selected_tags if t.casefold() != key]
+        else:
+            rest = selected_tags + [name]
+        return link(tag=",".join(rest))
+
+    # Tag list for the sidebar: how many items in this view each tag would leave.
+    in_view = [item for item in searched if in_folder(item["id"], folders, folder)]
+    narrowed = [item for item in in_view if has_all_tags(item)]
+    tag_counts = []
+    for name in all_tags(get_db()):
+        active = name.casefold() in wanted
+        count = len(narrowed) if active else sum(
+            1 for item in narrowed if has_all_tags(item, (name,))
+        )
+        if count or active:
+            tag_counts.append({"name": name, "count": count, "active": active, "url": tag_url(name)})
 
     segments = path_segments(folder)
     crumbs = (
@@ -171,6 +211,9 @@ def index():
             crumbs=crumbs,
             title=title,
             link=link,
+            tag_url=tag_url,
+            tag_counts=tag_counts,
+            selected_tags=selected_tags,
         )
     )
     if request.args.get("view") in VIEWS:
@@ -215,6 +258,8 @@ def _item_form(item):
             error = "Local file path must be 500 characters or fewer."
         elif model_url and not model_url.lower().startswith(("http://", "https://")):
             error = "Model link must start with http:// or https://."
+        tags, tag_error = parse_tags(request.form.get("tags", ""))
+        error = error or tag_error
 
         if error:
             flash(error, "error")
@@ -236,6 +281,7 @@ def _item_form(item):
                     (name, description, model_url, path, item["id"]),
                 )
                 item_id = item["id"]
+            set_tags(db, item_id, tags)
             db.commit()
 
             saved, errors = save_uploads(request.files.getlist("files"), item_id)
@@ -250,9 +296,15 @@ def _item_form(item):
 
     form = request.form if request.method == "POST" else None
     images, models = files_for_item(item["id"]) if item else ([], [])
+    if form is not None:
+        tags_text = form.get("tags", "")
+    else:
+        tags_text = ", ".join(tags_by_item(get_db()).get(item["id"], [])) if item else ""
     return render_template(
         "item_form.html",
         item=item,
+        tags_text=tags_text,
+        known_tags=all_tags(get_db()),
         form=form,
         images=images,
         models=models,
@@ -280,6 +332,7 @@ def item_detail(item_id):
         "item_detail.html",
         item=item,
         jobs=jobs,
+        tags=tags_by_item(get_db()).get(item_id, []),
         images=images,
         models=models,
         viewer=True,
