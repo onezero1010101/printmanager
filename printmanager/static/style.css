@@ -381,7 +381,7 @@ fieldset { border: 1px solid var(--border); border-radius: 8px; padding: .75rem;
 /* ---- bed fit -------------------------------------------------------------- */
 .bed-fields { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
 .bed-fields label { display: flex; flex-direction: column; gap: .25rem; }
-.fit { display: inline-flex; align-items: center; font-size: .8rem; padding: .05rem .5rem; border-radius: 99px; white-space: nowrap; }
+.fit { display: inline-flex; align-items: center; align-self: flex-start; width: fit-content; max-width: 100%; margin-top: .2rem; font-size: .75rem; line-height: 1.3; padding: .05rem .5rem; border-radius: 99px; }
 .fit-fits { background: #dcfce7; color: #166534; }
 .fit-rotate { background: #fef3c7; color: #92400e; }
 .fit-big { background: #fee2e2; color: #991b1b; }
