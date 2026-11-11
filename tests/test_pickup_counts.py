@@ -142,3 +142,37 @@ def test_inventory_card_chip_counts_copies(auth, app):
     queue(auth, item, 3)
     progress(auth, 1, 2)
     assert "2 printed" in auth.get("/").data.decode()
+
+
+# --- bulk pickup ---------------------------------------------------------------
+
+def ready_jobs(auth, item, n):
+    for _ in range(n):
+        queue(auth, item, 1)
+    with auth.client.application.app_context():
+        ids = [r["id"] for r in get_db().execute("SELECT id FROM print_jobs ORDER BY id")]
+    for job in ids:
+        auth.post(f"/jobs/{job}/complete")
+    return ids
+
+
+def test_bulk_pickup_moves_only_ticked_jobs(auth, app):
+    item = make_item(auth)
+    a, b, c = ready_jobs(auth, item, 3)
+    page = auth.get("/queue").data.decode()
+    assert page.count('name="job"') == 3 and 'id="ready-all"' in page
+    auth.post("/jobs/pickup", data={"job": [str(a), str(c), "junk", str(a)], "next": "/queue"})
+    assert stage(app, a)["picked_up_at"] and stage(app, c)["picked_up_at"]
+    assert stage(app, b)["picked_up_at"] is None
+    page = auth.get("/queue").data.decode()
+    assert page.count('name="job"') == 1
+
+
+def test_bulk_pickup_ignores_other_jobs_and_empty_selection(auth, app):
+    item = make_item(auth)
+    queue(auth, item, 1)                      # still queued, not ready
+    resp = auth.post("/jobs/pickup", data={"job": ["1", "999"]}, follow_redirects=True)
+    assert b"aren&#39;t waiting" in resp.data
+    assert stage(app, 1)["status"] == "queued"
+    resp = auth.post("/jobs/pickup", data={}, follow_redirects=True)
+    assert b"Tick the jobs" in resp.data

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import action, mini_cover, filament_chip, color_form, progress, progress_form, fit_badge with context %}
 {% block title %}Queue{% endblock %}
+
 {% block content %}
 <div class="page-head">
   <h1>Print queue</h1>
@@ -42,9 +43,18 @@
 
 {% if ready %}
 <h2>Ready for pickup</h2>
+<form id="ready-form" method="post" action="{{ url_for('jobs.pickup_many') }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+  <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+</form>
+<div class="bulk-bar">
+  <label class="select-all" hidden><input type="checkbox" id="ready-all"> Select all</label>
+  <button class="btn btn-primary btn-small" type="submit" form="ready-form" id="ready-pickup">Picked up <span id="ready-count"></span></button>
+</div>
 <ul class="jobs">
   {% for job in ready %}
   <li class="job">
+    <input class="job-check" type="checkbox" name="job" value="{{ job.id }}" form="ready-form" aria-label="Select {{ job.quantity }} × {{ job.item_name }}">
     {{ mini_cover(job, job.item_name) }}
     <div class="job-main">
       <a class="job-title" href="{{ url_for('inventory.item_detail', item_id=job.item_id) }}">{{ job.quantity }} &times; {{ job.item_name }}</a>{% if job.file_name %} <span class="part">{{ job.file_name }}</span>{% endif %} {{ filament_chip(job) }}
@@ -85,3 +95,5 @@
 </ul>
 {% endif %}
 {% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='bulk.js') }}" defer></script>{% endblock %}

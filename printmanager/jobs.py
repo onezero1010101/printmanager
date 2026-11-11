@@ -147,6 +147,33 @@ def print_again(job_id):
     return redirect(back)
 
 
+@bp.post("/jobs/pickup")
+@login_required
+def pickup_many():
+    """Pick up several ready jobs at once (the checkboxes on the Queue page)."""
+    ids = []
+    for raw in request.form.getlist("job"):
+        if raw.isdigit() and int(raw) not in ids:
+            ids.append(int(raw))
+    back = safe_path(request.form.get("next"), url_for("jobs.queue"))
+    if not ids:
+        flash("Tick the jobs you've picked up first.", "error")
+        return redirect(back)
+    db = get_db()
+    marks = ",".join("?" * len(ids))
+    cur = db.execute(
+        f"UPDATE print_jobs SET picked_up_at = ? WHERE id IN ({marks})"
+        " AND status = 'completed' AND picked_up_at IS NULL",
+        (utcnow(), *ids),
+    )
+    db.commit()
+    if cur.rowcount:
+        flash(f"Picked up {cur.rowcount} job{'s' if cur.rowcount != 1 else ''}.", "success")
+    else:
+        flash("Those jobs aren't waiting for pickup any more.", "error")
+    return redirect(back)
+
+
 @bp.post("/jobs/<int:job_id>/progress")
 @login_required
 def set_progress(job_id):
