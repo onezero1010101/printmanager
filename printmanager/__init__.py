@@ -83,12 +83,18 @@ def create_app(test_config=None):
     def inject_globals():
         if "_csrf" not in session:
             session["_csrf"] = secrets.token_hex(16)
-        open_jobs = 0
+        open_jobs = ready_jobs = 0
         if g.get("user"):
-            open_jobs = db.get_db().execute(
-                "SELECT COUNT(*) FROM print_jobs WHERE status != 'completed'"
-            ).fetchone()[0]
-        return {"csrf_token": session["_csrf"], "open_jobs": open_jobs}
+            open_jobs, ready_jobs = db.get_db().execute(
+                "SELECT COUNT(*),"
+                " COALESCE(SUM(status = 'completed'), 0) FROM print_jobs"
+                " WHERE status != 'completed' OR picked_up_at IS NULL"
+            ).fetchone()
+        return {
+            "csrf_token": session["_csrf"],
+            "open_jobs": open_jobs,
+            "ready_jobs": ready_jobs,
+        }
 
     @app.template_filter("localtime")
     def localtime(value):

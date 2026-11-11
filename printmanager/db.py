@@ -55,6 +55,14 @@ def init_db():
         # Jobs finished before this existed were finished in full.
         db.execute("UPDATE print_jobs SET done_qty = quantity WHERE status = 'completed'")
 
+    if "picked_up_at" not in job_columns:
+        db.execute("ALTER TABLE print_jobs ADD COLUMN picked_up_at TEXT")
+        # Everything finished before this step existed counts as picked up.
+        db.execute(
+            "UPDATE print_jobs SET picked_up_at = COALESCE(completed_at, queued_at)"
+            " WHERE status = 'completed'"
+        )
+
     file_columns = {row["name"] for row in db.execute("PRAGMA table_info(item_files)")}
     for name, definition in (
         ("dim_x", "REAL"),

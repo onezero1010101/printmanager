@@ -11,7 +11,7 @@
     <span class="file-ext">{{ f.original_name|fileext }}</span>
     <div class="file-main">
       <span class="file-name">{{ f.original_name }}</span>
-      <span class="muted">{{ f.size|filesize }}{% if f.dim_x is not none %} · <span class="dims">{{ dims_text(f) }}</span>{% endif %}</span>
+      <span class="muted">{{ f.size|filesize }}{% if f.dim_x is not none %} · <span class="dims">{{ dims_text(f) }}</span>{% endif %}{% if f.printed_qty %} · <span class="printed-count">Printed {{ f.printed_qty }}&times;</span>{% else %} · Not printed yet{% endif %}</span>
       {{ fit_badge(fit_of(f)) }}
     </div>
     <div class="file-actions">

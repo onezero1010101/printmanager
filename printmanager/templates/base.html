@@ -21,7 +21,7 @@
     {% if g.user %}
     <nav>
       <a href="{{ url_for('inventory.index') }}" class="{{ 'active' if ep.startswith('inventory.') }}">Inventory</a>
-      <a href="{{ url_for('jobs.queue') }}" class="{{ 'active' if ep == 'jobs.queue' }}">Queue{% if open_jobs %}<span class="badge">{{ open_jobs }}</span>{% endif %}</a>
+      <a href="{{ url_for('jobs.queue') }}" class="{{ 'active' if ep == 'jobs.queue' }}">Queue{% if open_jobs %}<span class="badge">{{ open_jobs }}</span>{% endif %}{% if ready_jobs %}<span class="badge badge-ready" title="{{ ready_jobs }} ready for pickup">{{ ready_jobs }} ready</span>{% endif %}</a>
       <a href="{{ url_for('jobs.history') }}" class="{{ 'active' if ep == 'jobs.history' }}">History</a>
       <a href="{{ url_for('spools.index') }}" class="{{ 'active' if ep.startswith('spools.') }}">Spools</a>
       <a href="{{ url_for('settings.index') }}" class="{{ 'active' if ep.startswith('settings.') }}">Settings</a>
