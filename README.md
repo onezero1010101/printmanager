@@ -17,7 +17,7 @@ A small web app for tracking 3D printing jobs. Keep an inventory of the things y
 - **Bed fit check:** enter your printer's build volume and a margin (default 5 mm on each side) on the Settings page. Each STL/3MF is measured once when it's uploaded (files from before this were measured on first start) and the size is stored, so changing the bed size re-checks instantly. Every model shows its size and a mark: fits, fits turned flat or on its side, or too big by some mm. Queue rows show the same mark. STL has no units, so millimeters are assumed (3MF files declare theirs). Only the overall bounding box is checked, not brims, supports or tilted placement
 - **Spools page:** shows the active (non-archived) spools from Spoolman with vendor, color, grams and metres left and a bar, sortable by material, color or least left. It follows the location setting. Spools under the low-stock level (default 100 g) are marked "low"
 - **Settings:** the Settings page holds the Spoolman address and an optional spool location filter (e.g. only spools in `Tim`, or any location) the low-stock level in grams and the printer bed size. Values saved there override the environment variables
-- **History:** completed prints, with "print again" to requeue
+- **History:** completed prints stay in the history. "Print again" adds a new job to the queue (same part and color, quantity box starting at 1) and leaves the original entry alone
 - **Logins:** username/password for a couple of users sharing one inventory and queue (no public signup)
 
 Built with Flask and SQLite. No build step, and everything lives in one data folder.

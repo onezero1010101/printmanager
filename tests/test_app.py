@@ -224,9 +224,8 @@ def test_queue_lifecycle(auth, app):
     assert b"3 &times; Benchy" in auth.get("/history").data
     assert b"3 &times; Benchy" not in auth.get("/queue").data
 
-    auth.post("/jobs/1/requeue")
-    job = job_status(app, 1)
-    assert job["status"] == "queued" and job["completed_at"] is None
+    auth.post("/jobs/1/requeue")  # finished prints can't be pulled back; use print again
+    assert job_status(app, 1)["status"] == "completed"
 
 
 def test_complete_directly_from_queue(auth, app):

@@ -16,7 +16,12 @@
       <div class="muted">Finished {{ job.completed_at|localtime }}{% if job.queued_by_name %} · queued by {{ job.queued_by_name }}{% endif %}{% if job.notes %} · {{ job.notes }}{% endif %}</div>
     </div>
     <div class="job-actions">
-      {{ action(job.id, 'requeue', 'Print again', 'btn') }}
+      <form class="inline progress-form" method="post" action="{{ url_for('jobs.print_again', job_id=job.id) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+        <input type="hidden" name="next" value="{{ request.full_path.rstrip('?') }}">
+        <input type="number" name="quantity" value="1" min="1" max="999" aria-label="How many to print again">
+        <button class="btn" type="submit">Print again</button>
+      </form>
       {{ action(job.id, 'delete', 'Remove', 'btn btn-danger', 'Remove this from the history?') }}
     </div>
   </li>
